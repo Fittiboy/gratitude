@@ -1,9 +1,7 @@
-
 use serde::Serialize;
 use std::fmt;
 
 use crate::error::Error;
-
 
 #[derive(Serialize)]
 pub(crate) struct HttpResponse {

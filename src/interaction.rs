@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::command::{init_commands, CommandInput};
-use crate::error::{Error, InteractionError};
 use crate::embed::Embed;
+use crate::error::{Error, InteractionError};
 
 #[derive(Deserialize_repr, Serialize)]
 #[repr(u8)]
@@ -12,7 +12,7 @@ enum InteractionType {
     ApplicationCommand = 2,
     MessageComponent = 3,
     ApplicationCommandAutoComplete = 4,
-    ModalSubmit = 5
+    ModalSubmit = 5,
 }
 
 #[allow(dead_code)]
@@ -24,7 +24,7 @@ pub(crate) enum InteractionResponseType {
     // ChannelMessage = 3,
     ChannelMessageWithSource = 4,
     ACKWithSource = 5,
-    AutoCompleteResult = 8
+    AutoCompleteResult = 8,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -33,13 +33,13 @@ pub(crate) struct ApplicationCommandInteractionDataOption {
     #[serde(rename = "type")]
     pub(crate) ty: ApplicationCommandOptionType,
     pub(crate) value: Option<String>,
-    pub(crate) focused: Option<bool>
+    pub(crate) focused: Option<bool>,
 }
 
 #[derive(Deserialize, Serialize)]
 pub(crate) struct ApplicationCommandInteractionData {
     pub(crate) name: String,
-    pub(crate) options: Option<Vec<ApplicationCommandInteractionDataOption>>
+    pub(crate) options: Option<Vec<ApplicationCommandInteractionDataOption>>,
 }
 
 #[derive(Serialize)]
@@ -47,7 +47,7 @@ pub(crate) struct InteractionApplicationCommandCallbackData {
     // https://discord.com/developers/docs/interactions/receiving-and-responding#interaction-response-object-interaction-callback-data-structure
     pub(crate) content: Option<String>,
     pub(crate) choices: Option<Vec<ApplicationCommandOptionChoice>>,
-    pub(crate) embeds: Option<Vec<Embed>>
+    pub(crate) embeds: Option<Vec<Embed>>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -61,7 +61,7 @@ pub(crate) struct User {
 pub(crate) struct Member {
     user: Option<User>,
     nick: Option<String>,
-    permissions: Option<String>
+    permissions: Option<String>,
 }
 
 impl Member {
@@ -70,8 +70,8 @@ impl Member {
             Some(permissions) => {
                 let num = permissions.parse::<u64>().unwrap_or(0);
                 num & 8 == 8
-            },
-            None => false
+            }
+            None => false,
         }
     }
 }
@@ -95,7 +95,6 @@ pub(crate) enum ApplicationCommandOptionType {
     SubCommand = 1,
     SubCommandGroup = 2,
     String = 3,
-
 }
 #[derive(Deserialize, Serialize, Clone)]
 pub(crate) struct ApplicationCommandOption {
@@ -106,21 +105,19 @@ pub(crate) struct ApplicationCommandOption {
     pub(crate) ty: ApplicationCommandOptionType,
     pub(crate) choices: Option<Vec<ApplicationCommandOptionChoice>>,
     pub(crate) autocomplete: Option<bool>,
-    pub(crate) required: Option<bool>
+    pub(crate) required: Option<bool>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub(crate) struct ApplicationCommandOptionChoice {
     // https://discord.com/developers/docs/interactions/application-commands#application-command-object-application-command-option-choice-structure
     pub(crate) name: String,
-    pub(crate) value: String
-
+    pub(crate) value: String,
 }
 
 impl Interaction {
     fn data(&self) -> Result<&ApplicationCommandInteractionData, Error> {
-        self
-            .data
+        self.data
             .as_ref()
             .ok_or_else(|| Error::InvalidPayload("data not found".to_string()))
     }
@@ -134,8 +131,6 @@ pub struct InteractionResponse {
 }
 
 impl Interaction {
-
-
     pub(crate) fn handle_ping(&self) -> InteractionResponse {
         InteractionResponse {
             ty: InteractionResponseType::Pong,
@@ -143,9 +138,10 @@ impl Interaction {
         }
     }
 
-
-    pub(crate) async fn handle_command(&self, ctx: &mut worker::RouteContext<()>) -> Result<InteractionResponse, InteractionError> {
-
+    pub(crate) async fn handle_command(
+        &self,
+        ctx: &mut worker::RouteContext<()>,
+    ) -> Result<InteractionResponse, InteractionError> {
         let data = self.data().map_err(|_| InteractionError::GenericError())?;
         let commands = init_commands();
 
@@ -155,7 +151,7 @@ impl Interaction {
             channel_id: self.channel_id.clone(),
             user: self.user.clone(),
             member: self.member.clone(),
-            ctx: ctx
+            ctx: ctx,
         };
 
         for boxed in commands.iter() {
@@ -166,15 +162,16 @@ impl Interaction {
                 return Ok(InteractionResponse {
                     ty: InteractionResponseType::ChannelMessageWithSource,
                     data: Some(response),
-                })
-
+                });
             }
         }
         Err(InteractionError::UnknownCommand(data.name.clone()))
-    
     }
 
-    pub(crate) async fn handle_autocomplete(&self, ctx: &mut worker::RouteContext<()>) -> Result<InteractionResponse, InteractionError> {
+    pub(crate) async fn handle_autocomplete(
+        &self,
+        ctx: &mut worker::RouteContext<()>,
+    ) -> Result<InteractionResponse, InteractionError> {
         let data = self.data().map_err(|_| InteractionError::GenericError())?;
         let commands = init_commands();
 
@@ -184,7 +181,7 @@ impl Interaction {
             channel_id: self.channel_id.clone(),
             user: self.user.clone(),
             member: self.member.clone(),
-            ctx: ctx
+            ctx: ctx,
         };
 
         for boxed in commands.iter() {
@@ -195,19 +192,27 @@ impl Interaction {
                 return Ok(InteractionResponse {
                     ty: InteractionResponseType::AutoCompleteResult,
                     data: response,
-                })
-
+                });
             }
         }
         Err(InteractionError::UnknownCommand(data.name.clone()))
     }
 
-    pub(crate) async fn perform(&self, ctx: &mut worker::RouteContext<()>) -> Result<InteractionResponse, Error> {
+    pub(crate) async fn perform(
+        &self,
+        ctx: &mut worker::RouteContext<()>,
+    ) -> Result<InteractionResponse, Error> {
         match self.ty {
             InteractionType::Ping => Ok(self.handle_ping()),
-            InteractionType::ApplicationCommand => self.handle_command(ctx).await.map_err(Error::InteractionFailed),
-            InteractionType::ApplicationCommandAutoComplete => self.handle_autocomplete(ctx).await.map_err(Error::InteractionFailed),
-            _ => Err(Error::InvalidPayload("Not implemented".into()))
+            InteractionType::ApplicationCommand => self
+                .handle_command(ctx)
+                .await
+                .map_err(Error::InteractionFailed),
+            InteractionType::ApplicationCommandAutoComplete => self
+                .handle_autocomplete(ctx)
+                .await
+                .map_err(Error::InteractionFailed),
+            _ => Err(Error::InvalidPayload("Not implemented".into())),
         }
     }
 }

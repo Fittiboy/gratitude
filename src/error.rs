@@ -18,12 +18,11 @@ pub(crate) enum Error {
     VerificationFailed(VerificationError),
 
     #[error("Interaction failed.")]
-    InteractionFailed(InteractionError)
+    InteractionFailed(InteractionError),
 }
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum InteractionError {
-
     #[allow(dead_code)]
     #[error("Error communicating with {0}")]
     UpstreamError(String),
@@ -35,7 +34,7 @@ pub(crate) enum InteractionError {
     GenericError(),
 
     #[error("Cloudflare worker error: {0}")]
-    WorkerError(String)
+    WorkerError(String),
 }
 
 impl From<worker::Error> for InteractionError {

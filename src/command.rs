@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use crate::commands;
-use crate::interaction::*;
 use crate::error::InteractionError;
+use crate::interaction::*;
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 
 #[allow(dead_code)]
 pub(crate) struct CommandInput<'a> {
@@ -23,30 +23,48 @@ impl CommandInput<'_> {
                     if option.name == name {
                         match option.value {
                             Some(ref value) => return Some(value),
-                            None => return None
+                            None => return None,
                         }
                     }
                 }
                 None
-            },
-            None => None
+            }
+            None => None,
         }
     }
 
-    pub async fn kv_get(&self, namespace: &str, key: &str) -> Result<Option<String>, InteractionError> {
-        let kv = self.ctx.kv(namespace).map_err( |_|InteractionError::WorkerError("Bind to kv".into()))?;
-        let value = kv.get(key).text().await.map_err( |_|InteractionError::WorkerError("Fetching from KV".into()))?;
+    pub async fn kv_get(
+        &self,
+        namespace: &str,
+        key: &str,
+    ) -> Result<Option<String>, InteractionError> {
+        let kv = self
+            .ctx
+            .kv(namespace)
+            .map_err(|_| InteractionError::WorkerError("Bind to kv".into()))?;
+        let value = kv
+            .get(key)
+            .text()
+            .await
+            .map_err(|_| InteractionError::WorkerError("Fetching from KV".into()))?;
         Ok(value)
     }
 
-    pub async fn kv_put(&self, namespace: &str, key: &str, value: &str) -> Result<(), InteractionError> {
-        let kv = self.ctx.kv(namespace).map_err( |_|InteractionError::WorkerError("bind to kv".into()))?;
+    pub async fn kv_put(
+        &self,
+        namespace: &str,
+        key: &str,
+        value: &str,
+    ) -> Result<(), InteractionError> {
+        let kv = self
+            .ctx
+            .kv(namespace)
+            .map_err(|_| InteractionError::WorkerError("bind to kv".into()))?;
         kv.put(key, value)
-        .map_err( |_|InteractionError::WorkerError("bind to KV".into()))?
-        .execute()
-        .await
-        .map_err(|_| InteractionError::WorkerError("KV put".into()))
-        ?;
+            .map_err(|_| InteractionError::WorkerError("bind to KV".into()))?
+            .execute()
+            .await
+            .map_err(|_| InteractionError::WorkerError("KV put".into()))?;
         Ok(())
     }
 
@@ -59,24 +77,25 @@ impl CommandInput<'_> {
                     Some(InteractionApplicationCommandCallbackData {
                         content: Some("You must be an admin to use this command!".to_string()),
                         choices: None,
-                        embeds: None
+                        embeds: None,
                     })
                 }
-            },
+            }
             None => Some(InteractionApplicationCommandCallbackData {
                 content: Some("You must use this command inside a discord server.".to_string()),
                 choices: None,
-                embeds: None
-            })
+                embeds: None,
+            }),
         }
     }
-
 }
-
 
 #[async_trait(?Send)]
 pub(crate) trait Command {
-    async fn respond(&self, _input: &CommandInput) -> Result<InteractionApplicationCommandCallbackData, InteractionError> {
+    async fn respond(
+        &self,
+        _input: &CommandInput,
+    ) -> Result<InteractionApplicationCommandCallbackData, InteractionError> {
         // Implement the command logic here
         unimplemented!()
     }
@@ -95,7 +114,10 @@ pub(crate) trait Command {
         unimplemented!()
     }
 
-    async fn autocomplete(&self, _input: &CommandInput) -> Result<Option<InteractionApplicationCommandCallbackData>, InteractionError> {
+    async fn autocomplete(
+        &self,
+        _input: &CommandInput,
+    ) -> Result<Option<InteractionApplicationCommandCallbackData>, InteractionError> {
         // If your command supports autocomplete implement the logic here
         unimplemented!()
     }
@@ -105,12 +127,11 @@ pub(crate) trait Command {
 pub(crate) struct RegisteredCommand {
     pub(crate) name: String,
     pub(crate) description: String,
-    pub(crate) options: Option<Vec<ApplicationCommandOption>>
+    pub(crate) options: Option<Vec<ApplicationCommandOption>>,
 }
 
-
 pub(crate) fn init_commands() -> Vec<Box<dyn Command + Sync>> {
-    let mut v : Vec<Box<dyn Command + Sync>> = Vec::new();
+    let mut v: Vec<Box<dyn Command + Sync>> = Vec::new();
     v.push(Box::new(commands::hello::Hello {}));
     v
 }
