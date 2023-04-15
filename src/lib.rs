@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use worker::*;
 
 mod bot;
@@ -96,8 +97,18 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
         .await
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct User {
+    active: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct Journal {
+    entries: Vec<String>,
+}
+
 #[event(scheduled)]
-pub async fn scheduled(event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
+pub async fn scheduled(event: ScheduledEvent, _env: Env, _ctx: ScheduleContext) {
     console_log!("This is a scheduled event:\nEvent: {:#?}\n", event,);
     // let kv = env.kv("thankful").unwrap();
 
