@@ -15,3 +15,8 @@ route = "gratitude.fitti.io/*"
 binding = "thankful"
 id = "c16524c419ba443198c2693921898931"
 preview_id = "637e42c694fc4a8ea7a52f4ce1504366"
+
+[[kv_namespaces]]
+binding = "grateful_users"
+id = "b26bde34b73d488f84afc395ddcadf3d"
+preview_id = "50c5b11d7e7246c387678a7860502f27"
