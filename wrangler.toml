@@ -10,3 +10,8 @@ crons = ["0 * * * *"]
 
 [env.production]
 route = "gratitude.fitti.io/*"
+
+[[kv_namespaces]]
+binding = "thankful"
+id = "c16524c419ba443198c2693921898931"
+preview_id = "637e42c694fc4a8ea7a52f4ce1504366"
