@@ -97,6 +97,38 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
 }
 
 #[event(scheduled)]
-pub async fn scheduled(event: ScheduledEvent, _env: Env, _ctx: ScheduleContext) {
+pub async fn scheduled(event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     console_log!("This is a scheduled event:\nEvent: {:#?}\n", event,);
+    let kv = env.kv("thankful").unwrap();
+
+    let users = match kv.get("names").json::<Vec<String>>().await {
+        Ok(Some(users)) => {
+            console_log!("{:?}", users);
+            users
+        }
+        Ok(None) => {
+            console_log!("No users!");
+            Vec::new()
+        }
+        Err(error) => {
+            console_log!("Couldn't read from KV store: {}", error);
+            Vec::new()
+        }
+    };
+
+    for user in users {
+        let other = if user == "Fitti".to_string() {
+            "John"
+        } else {
+            "Fitti"
+        };
+        if let Err(error) = kv.put(&user, vec![other, "Me"]).unwrap().execute().await {
+            console_log!("Couldn't write to KV store: {}", error);
+        }
+        match kv.get(&user).json::<Vec<String>>().await {
+            Ok(Some(words)) => console_log!("{}: {:?}", user, words),
+            Ok(None) => console_log!("Found empty vector!"),
+            Err(error) => console_log!("Couldn't read from KV store: {}", error),
+        }
+    }
 }
