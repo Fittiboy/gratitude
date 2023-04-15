@@ -95,3 +95,8 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
         .run(req, env)
         .await
 }
+
+#[event(scheduled)]
+pub async fn scheduled(event: ScheduledEvent, _env: Env, _ctx: ScheduleContext) {
+    console_log!("This is a scheduled event:\nEvent: {:#?}\n", event,);
+}
