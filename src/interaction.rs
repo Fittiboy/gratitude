@@ -101,10 +101,11 @@ impl TextInput {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Message {
+    id: Option<String>,
     content: Option<String>,
-    components: Vec<ActionRow>,
+    components: Option<Vec<ActionRow>>,
 }
 
 impl Message {
@@ -117,8 +118,9 @@ impl Message {
             None => Some("Hi there, welcome to gratitude bot!".into()),
         };
         Message {
+            id: None,
             content,
-            components: vec![ActionRow::new()],
+            components: Some(vec![ActionRow::new()]),
         }
     }
 }
@@ -159,7 +161,7 @@ pub struct Button {
     style: u8,
     label: String,
     custom_id: String,
-    disabled: bool,
+    disabled: Option<bool>,
 }
 
 impl Button {
@@ -169,7 +171,7 @@ impl Button {
             style: 3,
             label: "What are you grateful for today?".into(),
             custom_id: "grateful_button".into(),
-            disabled: false,
+            disabled: Some(false),
         }
     }
 }
@@ -188,6 +190,7 @@ pub struct Interaction {
     token: String,
     guild_id: Option<String>,
     channel_id: Option<String>,
+    message: Option<Message>,
     user: Option<User>,
 }
 
@@ -211,7 +214,7 @@ impl Interaction {
             .clone()
             .expect("Only users can click buttons")
             .username;
-        console_log!("Handling button!");
+        console_log!("Handling button! Disabling…");
         InteractionResponse {
             r#type: InteractionResponseType::Modal,
             data: Some(InteractionResponseData::Modal(Modal::with_name(name))),
@@ -222,8 +225,9 @@ impl Interaction {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
             data: Some(InteractionResponseData::Message(Message {
+                id: None,
                 content: Some("Neat, the interaction worked!".into()),
-                components: vec![],
+                components: Some(vec![]),
             })),
         }
     }
