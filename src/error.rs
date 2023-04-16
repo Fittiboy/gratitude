@@ -27,9 +27,8 @@ pub(crate) enum InteractionError {
     #[error("Error communicating with {0}")]
     UpstreamError(String),
 
-    #[error("Command not found {0}")]
-    UnknownCommand(String),
-
+    // #[error("Command not found {0}")]
+    // UnknownCommand(String),
     #[error("Something went wrong")]
     GenericError(),
 

@@ -2,8 +2,6 @@ use serde::{Deserialize, Serialize};
 use worker::*;
 
 mod bot;
-mod command;
-mod commands;
 mod embed;
 mod error;
 mod http;
@@ -53,45 +51,6 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                     Response::error(httperr.to_string(), httperr.status as u16)
                 }
             }
-        })
-        .post_async("/register", |_, ctx| async move {
-            let commands = command::init_commands();
-
-            let mut to_register: Vec<command::RegisteredCommand> = Vec::new();
-            for boxed in commands.iter() {
-                let com = boxed;
-                let reg = command::RegisteredCommand {
-                    name: com.name(),
-                    description: com.description(),
-                    options: com.options(),
-                };
-                to_register.push(reg);
-            }
-
-            let client = reqwest::Client::new();
-            let app_id = ctx.var("DISCORD_APPLICATION_ID")?.to_string();
-            let token = ctx.var("DISCORD_TOKEN")?.to_string();
-            let url = format!(
-                "https://discord.com/api/v10/applications/{}/commands",
-                app_id
-            );
-
-            let serialized = serde_json::to_string(&to_register)?;
-            worker::console_log! {"Sending  : {}", serialized};
-
-            let response = client
-                .put(url)
-                .body(serialized)
-                .header("Authorization", format!("Bot {}", token))
-                .header("Content-Type", "application/json")
-                .send()
-                .await
-                .unwrap()
-                .text()
-                .await
-                .unwrap();
-            worker::console_log! {"Registration response: {}", response};
-            Response::ok(&response)
         })
         .run(req, env)
         .await

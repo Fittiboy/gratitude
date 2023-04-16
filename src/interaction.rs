@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use crate::command::{init_commands, CommandInput};
+// use crate::command::{init_commands, CommandInput};
 use crate::embed::Embed;
 use crate::error::{Error, InteractionError};
 
@@ -9,9 +9,9 @@ use crate::error::{Error, InteractionError};
 #[repr(u8)]
 enum InteractionType {
     Ping = 1,
-    ApplicationCommand = 2,
+    // ApplicationCommand = 2,
     MessageComponent = 3,
-    ApplicationCommandAutoComplete = 4,
+    // ApplicationCommandAutoComplete = 4,
     ModalSubmit = 5,
 }
 
@@ -24,7 +24,7 @@ pub(crate) enum InteractionResponseType {
     // ChannelMessage = 3,
     ChannelMessageWithSource = 4,
     ACKWithSource = 5,
-    AutoCompleteResult = 8,
+    // AutoCompleteResult = 8,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -138,80 +138,12 @@ impl Interaction {
         }
     }
 
-    pub(crate) async fn handle_command(
-        &self,
-        ctx: &mut worker::RouteContext<()>,
-    ) -> Result<InteractionResponse, InteractionError> {
-        let data = self.data().map_err(|_| InteractionError::GenericError())?;
-        let commands = init_commands();
-
-        let command_input = CommandInput {
-            options: data.options.clone(),
-            guild_id: self.guild_id.clone(),
-            channel_id: self.channel_id.clone(),
-            user: self.user.clone(),
-            member: self.member.clone(),
-            ctx,
-        };
-
-        for boxed in commands.iter() {
-            let com = boxed;
-            if com.name() == data.name {
-                let response = com.respond(&command_input).await?;
-
-                return Ok(InteractionResponse {
-                    ty: InteractionResponseType::ChannelMessageWithSource,
-                    data: Some(response),
-                });
-            }
-        }
-        Err(InteractionError::UnknownCommand(data.name.clone()))
-    }
-
-    pub(crate) async fn handle_autocomplete(
-        &self,
-        ctx: &mut worker::RouteContext<()>,
-    ) -> Result<InteractionResponse, InteractionError> {
-        let data = self.data().map_err(|_| InteractionError::GenericError())?;
-        let commands = init_commands();
-
-        let command_input = CommandInput {
-            options: data.options.clone(),
-            guild_id: self.guild_id.clone(),
-            channel_id: self.channel_id.clone(),
-            user: self.user.clone(),
-            member: self.member.clone(),
-            ctx,
-        };
-
-        for boxed in commands.iter() {
-            let com = boxed;
-            if com.name() == data.name {
-                let response = com.autocomplete(&command_input).await?;
-
-                return Ok(InteractionResponse {
-                    ty: InteractionResponseType::AutoCompleteResult,
-                    data: response,
-                });
-            }
-        }
-        Err(InteractionError::UnknownCommand(data.name.clone()))
-    }
-
     pub(crate) async fn perform(
         &self,
         ctx: &mut worker::RouteContext<()>,
     ) -> Result<InteractionResponse, Error> {
         match self.ty {
             InteractionType::Ping => Ok(self.handle_ping()),
-            InteractionType::ApplicationCommand => self
-                .handle_command(ctx)
-                .await
-                .map_err(Error::InteractionFailed),
-            InteractionType::ApplicationCommandAutoComplete => self
-                .handle_autocomplete(ctx)
-                .await
-                .map_err(Error::InteractionFailed),
             _ => Err(Error::InvalidPayload("Not implemented".into())),
         }
     }
