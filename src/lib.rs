@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use worker::*;
 
 mod bot;
@@ -6,6 +5,7 @@ mod embed;
 mod error;
 mod http;
 mod interaction;
+mod message;
 mod utils;
 mod verification;
 
@@ -56,19 +56,15 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
         .await
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct User {
-    active: bool,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-struct Journal {
-    entries: Vec<String>,
-}
-
 #[event(scheduled)]
-pub async fn scheduled(event: ScheduledEvent, _env: Env, _ctx: ScheduleContext) {
+pub async fn scheduled(event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     console_log!("This is a scheduled event:\nEvent: {:#?}\n", event,);
+    let users_kv = env
+        .kv("grateful_users")
+        .expect("Worker should have access to this binding");
+    for user in message::registered_users(users_kv).await {
+        user.prompt().await;
+    }
     // let kv = env.kv("thankful").unwrap();
 
     // let users = match kv.get("names").json::<Vec<String>>().await {
