@@ -1,4 +1,3 @@
-use serde::Serialize;
 use worker::*;
 
 mod bot;
@@ -9,6 +8,8 @@ mod interaction;
 mod message;
 mod utils;
 mod verification;
+
+use crate::interaction::Message;
 
 fn log_request(req: &Request) {
     console_log!(
@@ -46,64 +47,6 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
         })
         .run(req, env)
         .await
-}
-
-#[derive(Serialize)]
-struct Message {
-    content: Option<String>,
-    components: Vec<ActionRow>,
-}
-
-impl Message {
-    fn new(journal_entry: Option<String>) -> Self {
-        let content = match journal_entry {
-            Some(text) => Some(format!(
-                "Here's something you were grateful for in the past:\n{}",
-                text
-            )),
-            None => Some("Hi there, welcome to gratitude bot!".into()),
-        };
-        Message {
-            content,
-            components: vec![ActionRow::new()],
-        }
-    }
-}
-
-#[derive(Serialize)]
-struct ActionRow {
-    r#type: u8,
-    components: Vec<Button>,
-}
-
-impl ActionRow {
-    fn new() -> Self {
-        ActionRow {
-            r#type: 1,
-            components: vec![Button::new()],
-        }
-    }
-}
-
-#[derive(Serialize)]
-struct Button {
-    r#type: u8,
-    style: u8,
-    label: String,
-    custom_id: String,
-    disabled: bool,
-}
-
-impl Button {
-    fn new() -> Self {
-        Button {
-            r#type: 2,
-            style: 3,
-            label: "What are you grateful for today?".into(),
-            custom_id: "grateful_button".into(),
-            disabled: false,
-        }
-    }
 }
 
 #[event(scheduled)]
