@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use worker::console_log;
+use worker::{console_log, Env};
 
 use crate::error::Error;
 
@@ -41,7 +41,7 @@ pub struct ModalSubmitData {
     components: Vec<ActionRow>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TextInputSubmit {
     r#type: u8,
     custom_id: String,
@@ -78,12 +78,13 @@ impl Modal {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TextInput {
     r#type: u8,
     custom_id: String,
     style: u8,
     label: String,
+    min_length: u32,
     max_length: u32,
     placeholder: String,
 }
@@ -95,6 +96,7 @@ impl TextInput {
             custom_id: "grateful_input".into(),
             style: 2,
             label: "Express your gratitude for something!".into(),
+            min_length: 5,
             max_length: 1000,
             placeholder: "Today, I am grateful for...".into(),
         }
@@ -104,6 +106,7 @@ impl TextInput {
 #[derive(Deserialize, Serialize)]
 pub struct Message {
     id: Option<String>,
+    channel_id: Option<String>,
     content: Option<String>,
     components: Option<Vec<ActionRow>>,
 }
@@ -119,13 +122,14 @@ impl Message {
         };
         Message {
             id: None,
+            channel_id: None,
             content,
             components: Some(vec![ActionRow::new()]),
         }
     }
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct ActionRow {
     r#type: u8,
     components: Vec<Component>,
@@ -147,7 +151,7 @@ impl ActionRow {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(untagged)]
 pub enum Component {
     Button(Button),
@@ -155,7 +159,7 @@ pub enum Component {
     TextInputSubmit(TextInputSubmit),
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Button {
     r#type: u8,
     style: u8,
@@ -200,6 +204,11 @@ pub struct InteractionResponse {
     pub(crate) data: Option<InteractionResponseData>,
 }
 
+#[derive(Debug, Serialize)]
+struct MessageEdit {
+    components: Vec<ActionRow>,
+}
+
 impl Interaction {
     fn handle_ping(&self) -> InteractionResponse {
         InteractionResponse {
@@ -214,18 +223,46 @@ impl Interaction {
             .clone()
             .expect("Only users can click buttons")
             .username;
-        console_log!("Handling button! Disabling…");
+        console_log!("Handling button!");
         InteractionResponse {
             r#type: InteractionResponseType::Modal,
             data: Some(InteractionResponseData::Modal(Modal::with_name(name))),
         }
     }
 
-    fn handle_modal(&self) -> InteractionResponse {
+    async fn handle_modal(&self, token: String) -> InteractionResponse {
+        let message = self.message.as_ref().unwrap();
+        let message_id = message.id.clone().unwrap();
+        let mut payload = message.components.clone().unwrap();
+        match payload.first_mut().unwrap().components.first_mut().unwrap() {
+            Component::Button(Button { disabled, .. }) => *disabled = Some(true),
+            _ => {}
+        }
+        let payload = MessageEdit {
+            components: payload,
+        };
+        console_log!("Payload: {:#?}", payload);
+        let client = reqwest::Client::new();
+        if let Err(error) = client
+            .patch(format!(
+                "https://discord.com/api/channels/{}/messages/{}",
+                self.channel_id.clone().unwrap(),
+                message_id,
+            ))
+            .header(reqwest::header::AUTHORIZATION, token)
+            .json(&payload)
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+        {
+            console_log!("Error disabling button: {}", error);
+        }
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
             data: Some(InteractionResponseData::Message(Message {
                 id: None,
+                channel_id: None,
                 content: Some("Neat, the interaction worked!".into()),
                 components: Some(vec![]),
             })),
@@ -234,12 +271,18 @@ impl Interaction {
 
     pub(crate) async fn perform(
         &self,
-        _ctx: &mut worker::RouteContext<()>,
+        ctx: &mut worker::RouteContext<()>,
     ) -> Result<InteractionResponse, Error> {
+        let token = discord_token(&ctx.env).await;
         match self.r#type {
             InteractionType::Ping => Ok(self.handle_ping()),
             InteractionType::MessageComponent => Ok(self.handle_button()),
-            InteractionType::ModalSubmit => Ok(self.handle_modal()),
+            InteractionType::ModalSubmit => Ok(self.handle_modal(token).await),
         }
     }
+}
+
+pub async fn discord_token(env: &Env) -> String {
+    let discord_token = env.var("DISCORD_TOKEN").unwrap().to_string();
+    "Bot ".to_string() + &discord_token
 }
