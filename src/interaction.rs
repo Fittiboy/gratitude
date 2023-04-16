@@ -69,10 +69,10 @@ pub struct Modal {
 }
 
 impl Modal {
-    pub fn new() -> Self {
+    pub fn with_name(name: String) -> Self {
         Modal {
             custom_id: "grateful_modal".into(),
-            title: "What are you grateful for?".into(),
+            title: format!("{}'s Gratitude Journal", name),
             components: vec![ActionRow::with_textinput()],
         }
     }
@@ -94,7 +94,7 @@ impl TextInput {
             r#type: 4,
             custom_id: "grateful_input".into(),
             style: 2,
-            label: "What are you grateful for right now?".into(),
+            label: "Express your gratitude for something!".into(),
             max_length: 1000,
             placeholder: "Today, I am grateful for...".into(),
         }
@@ -206,10 +206,15 @@ impl Interaction {
     }
 
     fn handle_button(&self) -> InteractionResponse {
+        let name = self
+            .user
+            .clone()
+            .expect("Only users can click buttons")
+            .username;
         console_log!("Handling button!");
         InteractionResponse {
             r#type: InteractionResponseType::Modal,
-            data: Some(InteractionResponseData::Modal(Modal::new())),
+            data: Some(InteractionResponseData::Modal(Modal::with_name(name))),
         }
     }
 
