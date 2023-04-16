@@ -151,7 +151,7 @@ impl Interaction {
             channel_id: self.channel_id.clone(),
             user: self.user.clone(),
             member: self.member.clone(),
-            ctx: ctx,
+            ctx,
         };
 
         for boxed in commands.iter() {
