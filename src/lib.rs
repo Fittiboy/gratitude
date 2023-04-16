@@ -108,11 +108,11 @@ impl Button {
 
 #[event(scheduled)]
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
-    let discord_token = env.var("DISCORD_TOKEN").unwrap().to_string();
-    let discord_token = "Bot ".to_string() + &discord_token;
-    let chan_id = "1096015676134658089";
-    let payload = Message::new(None);
-    let client = reqwest::Client::new();
+    // let discord_token = env.var("DISCORD_TOKEN").unwrap().to_string();
+    // let discord_token = "Bot ".to_string() + &discord_token;
+    // let chan_id = "1096015676134658089";
+    // let payload = Message::new(None);
+    // let client = reqwest::Client::new();
     // if let Err(error) = client
     //     .post(format!(
     //         "https://discord.com/api/channels/{}/messages",

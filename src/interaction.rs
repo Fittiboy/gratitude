@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::error::Error;
+use crate::Message;
 
 #[derive(Deserialize_repr, Serialize)]
 #[repr(u8)]
@@ -21,6 +22,12 @@ pub(crate) enum InteractionResponseType {
     Modal = 9,
 }
 
+#[derive(Serialize)]
+pub(crate) enum InteractionResponseData {
+    Modal(Modal),
+    Message(Message),
+}
+
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ModalSubmitData {
     custom_id: String,
@@ -28,9 +35,9 @@ pub struct ModalSubmitData {
 }
 
 #[derive(Deserialize, Serialize)]
-struct ModalInteractionData {
+struct MessageComponentData {
     name: String,
-    options: Option<Vec<ModalSubmitData>>,
+    component_type: u8,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -40,44 +47,52 @@ pub(crate) struct User {
     discriminator: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct Member {
-    user: Option<User>,
-    nick: Option<String>,
-    permissions: Option<String>,
+#[derive(Deserialize, Serialize)]
+enum InteractionData {
+    ComponentInteractionData(MessageComponentData),
+    ModalInteractionData(ModalSubmitData),
 }
 
 #[derive(Deserialize, Serialize)]
-pub(crate) struct Interaction {
+pub struct Interaction {
     #[serde(rename = "type")]
     ty: InteractionType,
-    data: Option<ModalInteractionData>,
+    data: Option<InteractionData>,
     token: String,
     guild_id: Option<String>,
     channel_id: Option<String>,
     user: Option<User>,
-    member: Option<Member>,
 }
 
 #[derive(Serialize)]
 pub struct InteractionResponse {
     #[serde(rename = "type")]
     pub(crate) ty: InteractionResponseType,
-    pub(crate) data: Option<Modal>,
+    pub(crate) data: Option<InteractionResponseData>,
 }
 
 impl Interaction {
-    pub(crate) fn handle_ping(&self) -> InteractionResponse {
+    fn handle_ping(&self) -> InteractionResponse {
         InteractionResponse {
             ty: InteractionResponseType::Pong,
             data: None,
         }
     }
 
-    pub(crate) fn handle_modal(&self) -> InteractionResponse {
+    fn handle_button(&self) -> InteractionResponse {
         InteractionResponse {
             ty: InteractionResponseType::Modal,
-            data: Some(Modal::new()),
+            data: Some(InteractionResponseData::Modal(Modal::new())),
+        }
+    }
+
+    fn handle_modal(&self) -> InteractionResponse {
+        InteractionResponse {
+            ty: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(InteractionResponseData::Message(Message {
+                content: Some("Neat, the interaction worked!".into()),
+                components: vec![],
+            })),
         }
     }
 
@@ -87,8 +102,8 @@ impl Interaction {
     ) -> Result<InteractionResponse, Error> {
         match self.ty {
             InteractionType::Ping => Ok(self.handle_ping()),
+            InteractionType::MessageComponent => Ok(self.handle_button()),
             InteractionType::ModalSubmit => Ok(self.handle_modal()),
-            _ => Err(Error::InvalidPayload("Not implemented".into())),
         }
     }
 }
