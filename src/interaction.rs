@@ -41,6 +41,13 @@ pub struct ModalSubmitData {
     components: Vec<ActionRow>,
 }
 
+#[derive(Deserialize, Serialize, Clone)]
+pub struct TextInputSubmit {
+    r#type: u8,
+    custom_id: String,
+    value: String,
+}
+
 #[derive(Deserialize, Serialize)]
 struct MessageComponentData {
     custom_id: String,
@@ -143,6 +150,7 @@ impl ActionRow {
 pub enum Component {
     Button(Button),
     TextInput(TextInput),
+    TextInputSubmit(TextInputSubmit),
 }
 
 #[derive(Deserialize, Serialize, Clone)]
