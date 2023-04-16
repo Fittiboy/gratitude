@@ -16,9 +16,8 @@ pub(crate) enum Error {
 
     #[error("Verification failed.")]
     VerificationFailed(VerificationError),
-
-    #[error("Interaction failed.")]
-    InteractionFailed(InteractionError),
+    // #[error("Interaction failed.")]
+    // InteractionFailed(InteractionError),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -29,9 +28,8 @@ pub(crate) enum InteractionError {
 
     // #[error("Command not found {0}")]
     // UnknownCommand(String),
-    #[error("Something went wrong")]
-    GenericError(),
-
+    // #[error("Something went wrong")]
+    // GenericError(),
     #[error("Cloudflare worker error: {0}")]
     WorkerError(String),
 }

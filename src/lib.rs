@@ -106,29 +106,6 @@ impl Button {
     }
 }
 
-#[derive(Serialize)]
-struct TextInput {
-    r#type: u8,
-    custom_id: String,
-    style: u8,
-    label: String,
-    max_length: u32,
-    placeholder: String,
-}
-
-impl TextInput {
-    fn new() -> Self {
-        TextInput {
-            r#type: 4,
-            custom_id: "grateful".into(),
-            style: 2,
-            label: "What are you grateful for right now?".into(),
-            max_length: 1000,
-            placeholder: "Today, I am grateful for...".into(),
-        }
-    }
-}
-
 #[event(scheduled)]
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     let discord_token = env.var("DISCORD_TOKEN").unwrap().to_string();
@@ -136,20 +113,20 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     let chan_id = "1096015676134658089";
     let payload = Message::new(None);
     let client = reqwest::Client::new();
-    if let Err(error) = client
-        .post(format!(
-            "https://discord.com/api/channels/{}/messages",
-            chan_id
-        ))
-        .header(reqwest::header::AUTHORIZATION, discord_token)
-        .json(&payload)
-        .send()
-        .await
-        .unwrap()
-        .error_for_status()
-    {
-        console_log!("Error posting message to me: {}", error);
-    }
+    // if let Err(error) = client
+    //     .post(format!(
+    //         "https://discord.com/api/channels/{}/messages",
+    //         chan_id
+    //     ))
+    //     .header(reqwest::header::AUTHORIZATION, discord_token)
+    //     .json(&payload)
+    //     .send()
+    //     .await
+    //     .unwrap()
+    //     .error_for_status()
+    // {
+    //     console_log!("Error posting message to me: {}", error);
+    // }
     let users_kv = env
         .kv("grateful_users")
         .expect("Worker should have access to this binding");

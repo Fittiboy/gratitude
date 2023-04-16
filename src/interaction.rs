@@ -1,17 +1,13 @@
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-// use crate::command::{init_commands, CommandInput};
-use crate::embed::Embed;
-use crate::error::{Error, InteractionError};
+use crate::error::Error;
 
 #[derive(Deserialize_repr, Serialize)]
 #[repr(u8)]
 enum InteractionType {
     Ping = 1,
-    // ApplicationCommand = 2,
     MessageComponent = 3,
-    // ApplicationCommandAutoComplete = 4,
     ModalSubmit = 5,
 }
 
@@ -20,34 +16,21 @@ enum InteractionType {
 #[repr(u8)]
 pub(crate) enum InteractionResponseType {
     Pong = 1,
-    // Acknowledge = 2,
-    // ChannelMessage = 3,
     ChannelMessageWithSource = 4,
     ACKWithSource = 5,
-    // AutoCompleteResult = 8,
+    Modal = 9,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct ApplicationCommandInteractionDataOption {
-    pub(crate) name: String,
-    #[serde(rename = "type")]
-    pub(crate) ty: ApplicationCommandOptionType,
-    pub(crate) value: Option<String>,
-    pub(crate) focused: Option<bool>,
+pub struct ModalSubmitData {
+    custom_id: String,
+    components: Vec<TextInput>,
 }
 
 #[derive(Deserialize, Serialize)]
-pub(crate) struct ApplicationCommandInteractionData {
-    pub(crate) name: String,
-    pub(crate) options: Option<Vec<ApplicationCommandInteractionDataOption>>,
-}
-
-#[derive(Serialize)]
-pub(crate) struct InteractionApplicationCommandCallbackData {
-    // https://discord.com/developers/docs/interactions/receiving-and-responding#interaction-response-object-interaction-callback-data-structure
-    pub(crate) content: Option<String>,
-    pub(crate) choices: Option<Vec<ApplicationCommandOptionChoice>>,
-    pub(crate) embeds: Option<Vec<Embed>>,
+struct ModalInteractionData {
+    name: String,
+    options: Option<Vec<ModalSubmitData>>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -64,23 +47,11 @@ pub(crate) struct Member {
     permissions: Option<String>,
 }
 
-impl Member {
-    pub fn is_admin(&self) -> bool {
-        match &self.permissions {
-            Some(permissions) => {
-                let num = permissions.parse::<u64>().unwrap_or(0);
-                num & 8 == 8
-            }
-            None => false,
-        }
-    }
-}
-
 #[derive(Deserialize, Serialize)]
 pub(crate) struct Interaction {
     #[serde(rename = "type")]
     ty: InteractionType,
-    data: Option<ApplicationCommandInteractionData>,
+    data: Option<ModalInteractionData>,
     token: String,
     guild_id: Option<String>,
     channel_id: Option<String>,
@@ -88,46 +59,11 @@ pub(crate) struct Interaction {
     member: Option<Member>,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Clone)]
-#[repr(u8)]
-pub(crate) enum ApplicationCommandOptionType {
-    // https://discord.com/developers/docs/interactions/application-commands#application-command-object-application-command-option-type
-    SubCommand = 1,
-    SubCommandGroup = 2,
-    String = 3,
-}
-#[derive(Deserialize, Serialize, Clone)]
-pub(crate) struct ApplicationCommandOption {
-    // https://discord.com/developers/docs/interactions/application-commands#application-command-object-application-command-option-structure
-    pub(crate) name: String,
-    pub(crate) description: String,
-    #[serde(rename = "type")]
-    pub(crate) ty: ApplicationCommandOptionType,
-    pub(crate) choices: Option<Vec<ApplicationCommandOptionChoice>>,
-    pub(crate) autocomplete: Option<bool>,
-    pub(crate) required: Option<bool>,
-}
-
-#[derive(Deserialize, Serialize, Clone, Debug)]
-pub(crate) struct ApplicationCommandOptionChoice {
-    // https://discord.com/developers/docs/interactions/application-commands#application-command-object-application-command-option-choice-structure
-    pub(crate) name: String,
-    pub(crate) value: String,
-}
-
-impl Interaction {
-    fn data(&self) -> Result<&ApplicationCommandInteractionData, Error> {
-        self.data
-            .as_ref()
-            .ok_or_else(|| Error::InvalidPayload("data not found".to_string()))
-    }
-}
-
 #[derive(Serialize)]
 pub struct InteractionResponse {
     #[serde(rename = "type")]
     pub(crate) ty: InteractionResponseType,
-    pub(crate) data: Option<InteractionApplicationCommandCallbackData>,
+    pub(crate) data: Option<Modal>,
 }
 
 impl Interaction {
@@ -138,13 +74,61 @@ impl Interaction {
         }
     }
 
+    pub(crate) fn handle_modal(&self) -> InteractionResponse {
+        InteractionResponse {
+            ty: InteractionResponseType::Modal,
+            data: Some(Modal::new()),
+        }
+    }
+
     pub(crate) async fn perform(
         &self,
-        ctx: &mut worker::RouteContext<()>,
+        _ctx: &mut worker::RouteContext<()>,
     ) -> Result<InteractionResponse, Error> {
         match self.ty {
             InteractionType::Ping => Ok(self.handle_ping()),
+            InteractionType::ModalSubmit => Ok(self.handle_modal()),
             _ => Err(Error::InvalidPayload("Not implemented".into())),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct Modal {
+    custom_id: String,
+    title: String,
+    components: Vec<TextInput>,
+}
+
+impl Modal {
+    fn new() -> Self {
+        Modal {
+            custom_id: "grateful_modal".into(),
+            title: "What are you grateful for?".into(),
+            components: vec![TextInput::new()],
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+struct TextInput {
+    r#type: u8,
+    custom_id: String,
+    style: u8,
+    label: String,
+    max_length: u32,
+    placeholder: String,
+}
+
+impl TextInput {
+    fn new() -> Self {
+        TextInput {
+            r#type: 4,
+            custom_id: "grateful_input".into(),
+            style: 2,
+            label: "What are you grateful for right now?".into(),
+            max_length: 1000,
+            placeholder: "Today, I am grateful for...".into(),
         }
     }
 }
