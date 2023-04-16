@@ -1,3 +1,4 @@
+use serde::Serialize;
 use worker::*;
 
 mod bot;
@@ -22,32 +23,23 @@ fn log_request(req: &Request) {
 #[event(fetch)]
 pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Response> {
     log_request(&req);
-
-    // Optionally, get more helpful error messages written to the console in the case of a panic.
     utils::set_panic_hook();
 
-    // Optionally, use the Router to handle matching endpoints, use ":name" placeholders, or "*name"
-    // catch-alls to match on specific patterns. Alternatively, use `Router::with_data(D)` to
-    // provide arbitrary data that will be accessible in each route via the `ctx.data()` method.
     let router = Router::new();
-
-    // Add as many routes as your Worker needs! Each route will get a `Request` for handling HTTP
-    // functionality and a `RouteContext` which you can use to  and get route parameters and
-    // Environment bindings like KV Stores, Durable Objects, Secrets, and Variables.
     router
         .post_async("/", |req, ctx| async move {
             let mut app = bot::App::new(req, ctx);
 
             match app.handle_request().await {
                 Ok(result) => {
-                    worker::console_log!(
+                    console_log!(
                         "Response : {}",
                         serde_json::to_string_pretty(&result).unwrap()
                     );
                     Response::from_json(&result)
                 }
                 Err(httperr) => {
-                    worker::console_log!("Error response : {}", httperr.to_string());
+                    console_log!("Error response : {}", httperr.to_string());
                     Response::error(httperr.to_string(), httperr.status as u16)
                 }
             }
@@ -56,45 +48,112 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
         .await
 }
 
+#[derive(Serialize)]
+struct Message {
+    content: Option<String>,
+    components: Vec<ActionRow>,
+}
+
+impl Message {
+    fn new(journal_entry: Option<String>) -> Self {
+        let content = match journal_entry {
+            Some(text) => Some(format!(
+                "Here's something you were grateful for in the past:\n{}",
+                text
+            )),
+            None => Some("Hi there, welcome to gratitude bot!".into()),
+        };
+        Message {
+            content,
+            components: vec![ActionRow::new()],
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct ActionRow {
+    r#type: u8,
+    components: Vec<Button>,
+}
+
+impl ActionRow {
+    fn new() -> Self {
+        ActionRow {
+            r#type: 1,
+            components: vec![Button::new()],
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct Button {
+    r#type: u8,
+    style: u8,
+    label: String,
+    custom_id: String,
+    disabled: bool,
+}
+
+impl Button {
+    fn new() -> Self {
+        Button {
+            r#type: 2,
+            style: 3,
+            label: "What are you grateful for today?".into(),
+            custom_id: "grateful_button".into(),
+            disabled: false,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct TextInput {
+    r#type: u8,
+    custom_id: String,
+    style: u8,
+    label: String,
+    max_length: u32,
+    placeholder: String,
+}
+
+impl TextInput {
+    fn new() -> Self {
+        TextInput {
+            r#type: 4,
+            custom_id: "grateful".into(),
+            style: 2,
+            label: "What are you grateful for right now?".into(),
+            max_length: 1000,
+            placeholder: "Today, I am grateful for...".into(),
+        }
+    }
+}
+
 #[event(scheduled)]
-pub async fn scheduled(event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
-    console_log!("This is a scheduled event:\nEvent: {:#?}\n", event,);
+pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
+    let discord_token = env.var("DISCORD_TOKEN").unwrap().to_string();
+    let discord_token = "Bot ".to_string() + &discord_token;
+    let chan_id = "1096015676134658089";
+    let payload = Message::new(None);
+    let client = reqwest::Client::new();
+    if let Err(error) = client
+        .post(format!(
+            "https://discord.com/api/channels/{}/messages",
+            chan_id
+        ))
+        .header(reqwest::header::AUTHORIZATION, discord_token)
+        .json(&payload)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+    {
+        console_log!("Error posting message to me: {}", error);
+    }
     let users_kv = env
         .kv("grateful_users")
         .expect("Worker should have access to this binding");
     for user in message::registered_users(users_kv).await {
         user.prompt().await;
     }
-    // let kv = env.kv("thankful").unwrap();
-
-    // let users = match kv.get("names").json::<Vec<String>>().await {
-    //     Ok(Some(users)) => {
-    //         console_log!("{:?}", users);
-    //         users
-    //     }
-    //     Ok(None) => {
-    //         console_log!("No users!");
-    //         Vec::new()
-    //     }
-    //     Err(error) => {
-    //         console_log!("Couldn't read from KV store: {}", error);
-    //         Vec::new()
-    //     }
-    // };
-
-    // for user in users {
-    //     let other = if user == "Fitti".to_string() {
-    //         "John"
-    //     } else {
-    //         "Fitti"
-    //     };
-    //     if let Err(error) = kv.put(&user, vec![other, "Me"]).unwrap().execute().await {
-    //         console_log!("Couldn't write to KV store: {}", error);
-    //     }
-    //     match kv.get(&user).json::<Vec<String>>().await {
-    //         Ok(Some(words)) => console_log!("{}: {:?}", user, words),
-    //         Ok(None) => console_log!("Found empty vector!"),
-    //         Err(error) => console_log!("Couldn't read from KV store: {}", error),
-    //     }
-    // }
 }
