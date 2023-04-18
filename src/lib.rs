@@ -10,8 +10,6 @@ mod message;
 mod utils;
 mod verification;
 
-use crate::interaction::Message;
-
 fn log_request(req: &Request) {
     console_log!(
         "{} - [{}], located at: {:?}, within: {}",
@@ -52,26 +50,12 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
 
 #[event(scheduled)]
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
-    // let chan_id = "1096015676134658089";
-    // let payload = Message::from_entry(None);
-    // console_log!(
-    //     "Payload: {}",
-    //     serde_json::to_string_pretty(&payload).unwrap()
-    // );
-
-    // let client = DiscordAPIBuilder::new(&env)
-    //     .post(&format!("channels/{}/messages", chan_id))
-    //     .json(&payload);
-    // if let Err(error) = client.send().await.unwrap().error_for_status() {
-    //     console_error!("Error posting message to me: {}", error);
+    // let users_kv = env
+    //     .kv("grateful_users")
+    //     .expect("Worker should have access to this binding");
+    // for user in message::registered_users(users_kv).await {
+    //     user.prompt(&env).await;
     // }
-
-    let users_kv = env
-        .kv("grateful_users")
-        .expect("Worker should have access to this binding");
-    for user in message::registered_users(users_kv).await {
-        user.prompt().await;
-    }
 }
 
 pub struct DiscordAPIBuilder {

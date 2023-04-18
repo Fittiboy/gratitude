@@ -148,3 +148,9 @@ pub struct InteractionResponse {
 pub struct MessageEdit {
     pub components: Vec<ActionRow>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Entries {
+    #[serde(flatten)]
+    pub vector: Vec<String>,
+}

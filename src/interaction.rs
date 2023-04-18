@@ -1,4 +1,4 @@
-use worker::{console_error, console_log, Env};
+use worker::{console_error, console_log, kv::KvStore, Env};
 
 use crate::error::Error;
 use crate::DiscordAPIBuilder;
@@ -62,8 +62,9 @@ impl Interaction {
     }
 
     async fn handle_modal(&self, env: &Env) -> InteractionResponse {
-        self.disable_button(env).await;
         let entry = self.entry();
+        self.add_entry(env, &entry).await;
+        self.disable_button(env).await;
 
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
@@ -77,7 +78,7 @@ impl Interaction {
     }
 
     fn entry(&self) -> String {
-        let action_row = self.modal_data();
+        let action_row = self.modal_action_row();
         let action_row = action_row.components.iter().next().unwrap();
         let Component::TextInputSubmit(TextInputSubmit { value, .. }) =
             action_row.components.iter().next().unwrap() else {
@@ -86,7 +87,36 @@ impl Interaction {
         value.to_owned()
     }
 
-    fn modal_data(&self) -> ModalSubmitData {
+    async fn add_entry(&self, env: &Env, entry: &str) {
+        let id = &self
+            .user
+            .clone()
+            .expect("only users can interact with modals")
+            .id;
+        let kv = env
+            .kv("thankful")
+            .expect("worker should have binding to thankful namespace");
+        let mut entries = self.get_entries(&kv, &id).await;
+        entries.push(entry.to_string());
+        kv.put(id, entries)
+            .unwrap()
+            .execute()
+            .await
+            .expect("should be able to serialize entries");
+    }
+
+    async fn get_entries(&self, kv: &KvStore, id: &String) -> Vec<String> {
+        match kv.get(id).text().await {
+            Ok(Some(text)) => serde_json::from_str(&text).unwrap(),
+            Ok(None) => Vec::new(),
+            Err(err) => {
+                console_error!("Couldn't get entries: {}", err);
+                panic!();
+            }
+        }
+    }
+
+    fn modal_action_row(&self) -> ModalSubmitData {
         match self
             .data
             .as_ref()
@@ -186,7 +216,7 @@ impl Message {
     pub fn from_entry(journal_entry: Option<String>) -> Self {
         let content = match journal_entry {
             Some(text) => Some(format!(
-                "Here's something you were grateful for in the past:\n{}",
+                "*Here's something you were grateful for in the past:*\n{}",
                 text
             )),
             None => Some("Hi there, welcome to gratitude bot!".into()),
