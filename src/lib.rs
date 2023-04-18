@@ -1,3 +1,4 @@
+use reqwest::{header::AUTHORIZATION, Client, RequestBuilder};
 use worker::*;
 
 mod bot;
@@ -51,13 +52,6 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
 
 #[event(scheduled)]
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
-    // let token = match discord_token(&env) {
-    //     Ok(token) => token,
-    //     Err(err) => {
-    //         console_error!("Couldn't get Discord API token: {}", err);
-    //         return;
-    //     }
-    // };
     // let chan_id = "1096015676134658089";
     // let payload = Message::from_entry(None);
     // console_log!(
@@ -65,21 +59,46 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     //     serde_json::to_string_pretty(&payload).unwrap()
     // );
 
-    // let client = reqwest::Client::new()
-    //     .post(format!(
-    //         "https://discord.com/api/channels/{}/messages",
-    //         chan_id
-    //     ))
-    //     .header(reqwest::header::AUTHORIZATION, &token)
+    // let client = DiscordAPIBuilder::new(&env)
+    //     .post(&format!("channels/{}/messages", chan_id))
     //     .json(&payload);
     // if let Err(error) = client.send().await.unwrap().error_for_status() {
     //     console_error!("Error posting message to me: {}", error);
     // }
+
     let users_kv = env
         .kv("grateful_users")
         .expect("Worker should have access to this binding");
     for user in message::registered_users(users_kv).await {
         user.prompt().await;
+    }
+}
+
+pub struct DiscordAPIBuilder {
+    token: String,
+    url: String,
+}
+
+impl DiscordAPIBuilder {
+    pub fn new(env: &Env) -> Self {
+        Self {
+            token: discord_token(env).unwrap(),
+            url: "https://discord.com/api/".into(),
+        }
+    }
+
+    pub fn patch(&mut self, url: &str) -> RequestBuilder {
+        self.url += url;
+        self.authorized(Client::new().patch(&self.url))
+    }
+
+    pub fn post(&mut self, url: &str) -> RequestBuilder {
+        self.url += url;
+        self.authorized(Client::new().post(&self.url))
+    }
+
+    pub fn authorized(&self, builder: RequestBuilder) -> RequestBuilder {
+        builder.header(AUTHORIZATION, &self.token)
     }
 }
 

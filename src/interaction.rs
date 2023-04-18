@@ -1,7 +1,7 @@
-use worker::{console_error, console_log};
+use worker::{console_error, console_log, Env};
 
-use crate::discord_token;
 use crate::error::Error;
+use crate::DiscordAPIBuilder;
 
 mod data_types;
 pub use data_types::*;
@@ -14,10 +14,7 @@ impl Interaction {
         match self.r#type {
             InteractionType::Ping => Ok(self.handle_ping()),
             InteractionType::MessageComponent => Ok(self.handle_component()),
-            InteractionType::ModalSubmit => {
-                let token = discord_token(&ctx.env).unwrap();
-                Ok(self.handle_modal(token).await)
-            }
+            InteractionType::ModalSubmit => Ok(self.handle_modal(&ctx.env).await),
         }
     }
 
@@ -64,8 +61,8 @@ impl Interaction {
         }
     }
 
-    async fn handle_modal(&self, token: String) -> InteractionResponse {
-        self.disable_button(token).await;
+    async fn handle_modal(&self, env: &Env) -> InteractionResponse {
+        self.disable_button(env).await;
 
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
@@ -93,12 +90,12 @@ impl Interaction {
         )
     }
 
-    async fn disable_button(&self, token: String) {
+    async fn disable_button(&self, env: &Env) {
         let (message_id, mut payload) = self.id_and_payload();
         Self::prepare_button_disable_payload(&mut payload);
         console_log!("Payload to disable button: {:#?}", payload);
 
-        self.submit_disable_button_request(message_id, token, payload)
+        self.submit_disable_button_request(message_id, env, payload)
             .await;
     }
 
@@ -119,17 +116,13 @@ impl Interaction {
     async fn submit_disable_button_request(
         &self,
         message_id: String,
-        token: String,
+        env: &Env,
         payload: MessageEdit,
     ) {
         let channel_id = self.channel_id.clone().unwrap();
-        let client = reqwest::Client::new();
+        let client = DiscordAPIBuilder::new(env)
+            .patch(&format!("channels/{}/messages/{}", channel_id, message_id,));
         if let Err(error) = client
-            .patch(format!(
-                "https://discord.com/api/channels/{}/messages/{}",
-                channel_id, message_id,
-            ))
-            .header(reqwest::header::AUTHORIZATION, token)
             .json(&payload)
             .send()
             .await
