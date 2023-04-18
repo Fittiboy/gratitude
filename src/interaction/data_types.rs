@@ -11,10 +11,12 @@ pub enum InteractionType {
     ModalSubmit = 5,
 }
 
-#[derive(Deserialize_repr, Serialize)]
+#[derive(Debug, Deserialize_repr, Serialize, Clone)]
 #[repr(u8)]
 pub enum ComponentType {
+    ActionRow = 1,
     Button = 2,
+    TextInput = 4,
 }
 
 #[allow(dead_code)]
@@ -36,14 +38,14 @@ pub enum InteractionResponseData {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ModalSubmitData {
-    pub custom_id: String,
+    pub custom_id: CustomId,
     pub components: Vec<ActionRow>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TextInputSubmit {
-    pub r#type: u8,
-    pub custom_id: String,
+    pub r#type: ComponentType,
+    pub custom_id: CustomId,
     pub value: String,
 }
 
@@ -53,10 +55,14 @@ pub struct MessageComponentData {
     pub component_type: ComponentType,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum CustomId {
     #[serde(rename = "grateful_button")]
     GratefulButton,
+    #[serde(rename = "grateful_input")]
+    GratefulInput,
+    #[serde(rename = "grateful_modal")]
+    GratefulModal,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -68,15 +74,15 @@ pub struct User {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct Modal {
-    pub custom_id: String,
+    pub custom_id: CustomId,
     pub title: String,
     pub components: Vec<ActionRow>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TextInput {
-    pub r#type: u8,
-    pub custom_id: String,
+    pub r#type: ComponentType,
+    pub custom_id: CustomId,
     pub style: u8,
     pub label: String,
     pub min_length: u32,
@@ -94,7 +100,7 @@ pub struct Message {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ActionRow {
-    pub r#type: u8,
+    pub r#type: ComponentType,
     pub components: Vec<Component>,
 }
 
@@ -108,10 +114,10 @@ pub enum Component {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Button {
-    pub r#type: u8,
+    pub r#type: ComponentType,
     pub style: u8,
     pub label: String,
-    pub custom_id: String,
+    pub custom_id: CustomId,
     pub disabled: Option<bool>,
 }
 

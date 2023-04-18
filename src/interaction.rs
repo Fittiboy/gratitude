@@ -7,6 +7,20 @@ mod data_types;
 pub use data_types::*;
 
 impl Interaction {
+    pub async fn perform(
+        &self,
+        ctx: &mut worker::RouteContext<()>,
+    ) -> Result<InteractionResponse, Error> {
+        match self.r#type {
+            InteractionType::Ping => Ok(self.handle_ping()),
+            InteractionType::MessageComponent => Ok(self.handle_component()),
+            InteractionType::ModalSubmit => {
+                let token = discord_token(&ctx.env).unwrap();
+                Ok(self.handle_modal(token).await)
+            }
+        }
+    }
+
     fn handle_ping(&self) -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::Pong,
@@ -14,14 +28,26 @@ impl Interaction {
         }
     }
 
-    fn handle_button(&self) -> InteractionResponse {
-        if let Some(InteractionData::ComponentInteractionData(button)) = &self.data {
-            match button.custom_id {
-                CustomId::GratefulButton => self.handle_grateful_button(),
-            }
-        } else {
-            console_error!("The message component is guaranteed to be a button in handle_button");
-            unreachable!();
+    fn handle_component(&self) -> InteractionResponse {
+        let InteractionData::ComponentInteractionData(component) = &self
+            .data
+            .as_ref()
+            .expect("Component data should always be part of the interaction") else {
+                console_error!("handle_component should only ever receive component data");
+                unreachable!();
+            };
+        match component.component_type {
+            ComponentType::Button => self.handle_button(&component.custom_id),
+            _ => unimplemented!(
+                "There are currently not other component types in use in this context"
+            ),
+        }
+    }
+
+    fn handle_button(&self, custom_id: &CustomId) -> InteractionResponse {
+        match custom_id {
+            CustomId::GratefulButton => self.handle_grateful_button(),
+            _ => unreachable!("All button IDs are covered!"),
         }
     }
 
@@ -113,26 +139,12 @@ impl Interaction {
             console_error!("Error disabling button: {}", error);
         }
     }
-
-    pub async fn perform(
-        &self,
-        ctx: &mut worker::RouteContext<()>,
-    ) -> Result<InteractionResponse, Error> {
-        match self.r#type {
-            InteractionType::Ping => Ok(self.handle_ping()),
-            InteractionType::MessageComponent => Ok(self.handle_button()),
-            InteractionType::ModalSubmit => {
-                let token = discord_token(&ctx.env).unwrap();
-                Ok(self.handle_modal(token).await)
-            }
-        }
-    }
 }
 
 impl Modal {
     pub fn with_name(name: String) -> Self {
         Modal {
-            custom_id: "grateful_modal".into(),
+            custom_id: CustomId::GratefulModal,
             title: format!("{}'s Gratitude Journal", name),
             components: vec![ActionRow::with_text_entry()],
         }
@@ -142,8 +154,8 @@ impl Modal {
 impl TextInput {
     pub fn new() -> Self {
         TextInput {
-            r#type: 4,
-            custom_id: "grateful_input".into(),
+            r#type: ComponentType::TextInput,
+            custom_id: CustomId::GratefulInput,
             style: 2,
             label: "Express your gratitude for something!".into(),
             min_length: 5,
@@ -174,14 +186,14 @@ impl Message {
 impl ActionRow {
     fn with_entry_button() -> Self {
         ActionRow {
-            r#type: 1,
+            r#type: ComponentType::ActionRow,
             components: vec![Component::Button(Button::entry())],
         }
     }
 
     fn with_text_entry() -> Self {
         ActionRow {
-            r#type: 1,
+            r#type: ComponentType::ActionRow,
             components: vec![Component::TextInput(TextInput::new())],
         }
     }
@@ -190,10 +202,10 @@ impl ActionRow {
 impl Button {
     fn entry() -> Self {
         Button {
-            r#type: 2,
+            r#type: ComponentType::Button,
             style: 3,
             label: "What are you grateful for today?".into(),
-            custom_id: "grateful_button".into(),
+            custom_id: CustomId::GratefulButton,
             disabled: Some(false),
         }
     }
