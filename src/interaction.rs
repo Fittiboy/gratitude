@@ -1,57 +1,10 @@
-use serde::{Deserialize, Serialize};
 use worker::{console_error, console_log};
 
 use crate::discord_token;
 use crate::error::Error;
 
-mod identifiers;
-use identifiers::*;
-
-#[derive(Serialize)]
-#[serde(untagged)]
-pub(crate) enum InteractionResponseData {
-    Modal(Modal),
-    Message(Message),
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-pub struct ModalSubmitData {
-    custom_id: String,
-    components: Vec<ActionRow>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct TextInputSubmit {
-    r#type: u8,
-    custom_id: String,
-    value: String,
-}
-
-#[derive(Deserialize, Serialize)]
-struct MessageComponentData {
-    custom_id: CustomId,
-    component_type: ComponentType,
-}
-
-#[derive(Deserialize, Serialize)]
-enum CustomId {
-    #[serde(rename = "grateful_button")]
-    GratefulButton,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub(crate) struct User {
-    id: String,
-    username: String,
-    discriminator: String,
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-pub struct Modal {
-    custom_id: String,
-    title: String,
-    components: Vec<ActionRow>,
-}
+mod data_types;
+pub use data_types::*;
 
 impl Modal {
     pub fn with_name(name: String) -> Self {
@@ -61,17 +14,6 @@ impl Modal {
             components: vec![ActionRow::with_text_entry()],
         }
     }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct TextInput {
-    r#type: u8,
-    custom_id: String,
-    style: u8,
-    label: String,
-    min_length: u32,
-    max_length: u32,
-    placeholder: String,
 }
 
 impl TextInput {
@@ -86,14 +28,6 @@ impl TextInput {
             placeholder: "Today, I am grateful for...".into(),
         }
     }
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct Message {
-    id: Option<String>,
-    channel_id: Option<String>,
-    content: Option<String>,
-    components: Option<Vec<ActionRow>>,
 }
 
 impl Message {
@@ -114,12 +48,6 @@ impl Message {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-struct ActionRow {
-    r#type: u8,
-    components: Vec<Component>,
-}
-
 impl ActionRow {
     fn with_entry_button() -> Self {
         ActionRow {
@@ -136,23 +64,6 @@ impl ActionRow {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(untagged)]
-pub enum Component {
-    Button(Button),
-    TextInput(TextInput),
-    TextInputSubmit(TextInputSubmit),
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Button {
-    r#type: u8,
-    style: u8,
-    label: String,
-    custom_id: String,
-    disabled: Option<bool>,
-}
-
 impl Button {
     fn entry() -> Self {
         Button {
@@ -163,35 +74,6 @@ impl Button {
             disabled: Some(false),
         }
     }
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(untagged)]
-enum InteractionData {
-    ComponentInteractionData(MessageComponentData),
-    ModalInteractionData(ModalSubmitData),
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct Interaction {
-    r#type: InteractionType,
-    data: Option<InteractionData>,
-    token: String,
-    guild_id: Option<String>,
-    channel_id: Option<String>,
-    message: Option<Message>,
-    user: Option<User>,
-}
-
-#[derive(Serialize)]
-pub struct InteractionResponse {
-    pub(crate) r#type: InteractionResponseType,
-    pub(crate) data: Option<InteractionResponseData>,
-}
-
-#[derive(Debug, Serialize)]
-struct MessageEdit {
-    components: Vec<ActionRow>,
 }
 
 impl Interaction {
