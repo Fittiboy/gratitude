@@ -232,17 +232,10 @@ impl Interaction {
     }
 
     async fn handle_modal(&self, token: String) -> InteractionResponse {
-        let message = self.message.as_ref().unwrap();
-        let message_id = message.id.clone().unwrap();
-        let mut payload = message.components.clone().unwrap();
-        match payload.first_mut().unwrap().components.first_mut().unwrap() {
-            Component::Button(Button { disabled, .. }) => *disabled = Some(true),
-            _ => {}
-        }
-        let payload = MessageEdit {
-            components: payload,
-        };
-        console_log!("Payload: {:#?}", payload);
+        let (message_id, mut payload) = self.id_and_payload();
+        Self::disable_button(&mut payload.components);
+        console_log!("Payload to disable button: {:#?}", payload);
+
         let client = reqwest::Client::new();
         if let Err(error) = client
             .patch(format!(
@@ -259,6 +252,7 @@ impl Interaction {
         {
             console_log!("Error disabling button: {}", error);
         }
+
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
             data: Some(InteractionResponseData::Message(Message {
@@ -267,6 +261,28 @@ impl Interaction {
                 content: Some("Neat, the interaction worked!".into()),
                 components: Some(vec![]),
             })),
+        }
+    }
+
+    fn id_and_payload(&self) -> (String, MessageEdit) {
+        let message = self.message.as_ref().unwrap();
+        let message_id = message.id.clone().unwrap();
+        let payload = message
+            .components
+            .clone()
+            .expect("Messages with a modal always have at least one component");
+        (
+            message_id,
+            MessageEdit {
+                components: payload,
+            },
+        )
+    }
+
+    fn disable_button(payload: &mut Vec<ActionRow>) {
+        match payload.first_mut().unwrap().components.first_mut().unwrap() {
+            Component::Button(Button { disabled, .. }) => *disabled = Some(true),
+            _ => {}
         }
     }
 
