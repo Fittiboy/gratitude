@@ -1,7 +1,7 @@
 use crate::verification::VerificationError;
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum Error {
+pub enum Error {
     #[error("Environment variable '{0}' not found.")]
     EnvironmentVariableNotFound(String),
 
@@ -21,7 +21,7 @@ pub(crate) enum Error {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum InteractionError {
+pub enum InteractionError {
     #[allow(dead_code)]
     #[error("Error communicating with {0}")]
     UpstreamError(String),

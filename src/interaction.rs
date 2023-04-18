@@ -6,6 +6,129 @@ use crate::error::Error;
 mod data_types;
 pub use data_types::*;
 
+impl Interaction {
+    fn handle_ping(&self) -> InteractionResponse {
+        InteractionResponse {
+            r#type: InteractionResponseType::Pong,
+            data: None,
+        }
+    }
+
+    fn handle_button(&self) -> InteractionResponse {
+        if let Some(InteractionData::ComponentInteractionData(button)) = &self.data {
+            match button.custom_id {
+                CustomId::GratefulButton => self.handle_grateful_button(),
+            }
+        } else {
+            console_error!("The message component is guaranteed to be a button in handle_button");
+            unreachable!();
+        }
+    }
+
+    fn handle_grateful_button(&self) -> InteractionResponse {
+        let name = self
+            .user
+            .clone()
+            .expect("Only users can click buttons")
+            .username;
+        console_log!("Handling button!");
+        InteractionResponse {
+            r#type: InteractionResponseType::Modal,
+            data: Some(InteractionResponseData::Modal(Modal::with_name(name))),
+        }
+    }
+
+    async fn handle_modal(&self, token: String) -> InteractionResponse {
+        self.disable_button(token).await;
+
+        InteractionResponse {
+            r#type: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(InteractionResponseData::Message(Message {
+                id: None,
+                channel_id: None,
+                content: Some("Neat, the interaction worked!".into()),
+                components: Some(vec![]),
+            })),
+        }
+    }
+
+    fn id_and_payload(&self) -> (String, MessageEdit) {
+        let message = self.message.as_ref().unwrap();
+        let message_id = message.id.clone().unwrap();
+        let payload = message
+            .components
+            .clone()
+            .expect("Messages with a modal always have at least one component");
+        (
+            message_id,
+            MessageEdit {
+                components: payload,
+            },
+        )
+    }
+
+    async fn disable_button(&self, token: String) {
+        let (message_id, mut payload) = self.id_and_payload();
+        Self::prepare_button_disable_payload(&mut payload);
+        console_log!("Payload to disable button: {:#?}", payload);
+
+        self.submit_disable_button_request(message_id, token, payload)
+            .await;
+    }
+
+    fn prepare_button_disable_payload(payload: &mut MessageEdit) {
+        let components = &mut payload.components;
+        match components
+            .first_mut()
+            .unwrap()
+            .components
+            .first_mut()
+            .unwrap()
+        {
+            Component::Button(Button { disabled, .. }) => *disabled = Some(true),
+            _ => {}
+        }
+    }
+
+    async fn submit_disable_button_request(
+        &self,
+        message_id: String,
+        token: String,
+        payload: MessageEdit,
+    ) {
+        let channel_id = self.channel_id.clone().unwrap();
+        let client = reqwest::Client::new();
+        if let Err(error) = client
+            .patch(format!(
+                "https://discord.com/api/channels/{}/messages/{}",
+                channel_id, message_id,
+            ))
+            .header(reqwest::header::AUTHORIZATION, token)
+            .json(&payload)
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+        {
+            console_error!("Error disabling button: {}", error);
+        }
+    }
+
+    pub async fn perform(
+        &self,
+        ctx: &mut worker::RouteContext<()>,
+    ) -> Result<InteractionResponse, Error> {
+        match self.r#type {
+            InteractionType::Ping => Ok(self.handle_ping()),
+            InteractionType::MessageComponent => Ok(self.handle_button()),
+            InteractionType::ModalSubmit => {
+                let token = discord_token(&ctx.env).unwrap();
+                Ok(self.handle_modal(token).await)
+            }
+        }
+    }
+}
+
 impl Modal {
     pub fn with_name(name: String) -> Self {
         Modal {
@@ -72,108 +195,6 @@ impl Button {
             label: "What are you grateful for today?".into(),
             custom_id: "grateful_button".into(),
             disabled: Some(false),
-        }
-    }
-}
-
-impl Interaction {
-    fn handle_ping(&self) -> InteractionResponse {
-        InteractionResponse {
-            r#type: InteractionResponseType::Pong,
-            data: None,
-        }
-    }
-
-    fn handle_button(&self) -> InteractionResponse {
-        if let Some(InteractionData::ComponentInteractionData(button)) = &self.data {
-            match button.custom_id {
-                CustomId::GratefulButton => self.grateful_button(),
-            }
-        } else {
-            console_error!("The message component is guaranteed to be a button in handle_button");
-            unreachable!();
-        }
-    }
-
-    fn grateful_button(&self) -> InteractionResponse {
-        let name = self
-            .user
-            .clone()
-            .expect("Only users can click buttons")
-            .username;
-        console_log!("Handling button!");
-        InteractionResponse {
-            r#type: InteractionResponseType::Modal,
-            data: Some(InteractionResponseData::Modal(Modal::with_name(name))),
-        }
-    }
-
-    async fn handle_modal(&self, token: String) -> InteractionResponse {
-        let (message_id, mut payload) = self.id_and_payload();
-        Self::disable_button(&mut payload.components);
-        console_log!("Payload to disable button: {:#?}", payload);
-
-        let client = reqwest::Client::new();
-        if let Err(error) = client
-            .patch(format!(
-                "https://discord.com/api/channels/{}/messages/{}",
-                self.channel_id.clone().unwrap(),
-                message_id,
-            ))
-            .header(reqwest::header::AUTHORIZATION, token)
-            .json(&payload)
-            .send()
-            .await
-            .unwrap()
-            .error_for_status()
-        {
-            console_log!("Error disabling button: {}", error);
-        }
-
-        InteractionResponse {
-            r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(Message {
-                id: None,
-                channel_id: None,
-                content: Some("Neat, the interaction worked!".into()),
-                components: Some(vec![]),
-            })),
-        }
-    }
-
-    fn id_and_payload(&self) -> (String, MessageEdit) {
-        let message = self.message.as_ref().unwrap();
-        let message_id = message.id.clone().unwrap();
-        let payload = message
-            .components
-            .clone()
-            .expect("Messages with a modal always have at least one component");
-        (
-            message_id,
-            MessageEdit {
-                components: payload,
-            },
-        )
-    }
-
-    fn disable_button(payload: &mut Vec<ActionRow>) {
-        match payload.first_mut().unwrap().components.first_mut().unwrap() {
-            Component::Button(Button { disabled, .. }) => *disabled = Some(true),
-            _ => {}
-        }
-    }
-
-    pub(crate) async fn perform(
-        &self,
-        ctx: &mut worker::RouteContext<()>,
-    ) -> Result<InteractionResponse, Error> {
-        match self.r#type {
-            InteractionType::Ping => Ok(self.handle_ping()),
-            InteractionType::MessageComponent => Ok(self.handle_button()),
-            InteractionType::ModalSubmit => {
-                let token = discord_token(&ctx.env).unwrap();
-                Ok(self.handle_modal(token).await)
-            }
         }
     }
 }

@@ -2,7 +2,7 @@ use ed25519_dalek::{PublicKey, Signature, SignatureError, Verifier};
 use hex::FromHexError;
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum VerificationError {
+pub enum VerificationError {
     #[error("Failed to parse from hex.")]
     ParseHexFailed(#[from] FromHexError),
 
@@ -13,7 +13,7 @@ pub(crate) enum VerificationError {
     InvalidSignature(ed25519_dalek::ed25519::Error),
 }
 
-pub(crate) fn verify_signature(
+pub fn verify_signature(
     public_key: &str,
     signature: &str,
     timestamp: &str,
