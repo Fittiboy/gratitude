@@ -60,19 +60,19 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     // };
     // let chan_id = "1096015676134658089";
     // let payload = Message::from_entry(None);
-    // let client = reqwest::Client::new();
-    // if let Err(error) = client
+    // console_log!(
+    //     "Payload: {}",
+    //     serde_json::to_string_pretty(&payload).unwrap()
+    // );
+
+    // let client = reqwest::Client::new()
     //     .post(format!(
     //         "https://discord.com/api/channels/{}/messages",
     //         chan_id
     //     ))
-    //     .header(reqwest::header::AUTHORIZATION, token)
-    //     .json(&payload)
-    //     .send()
-    //     .await
-    //     .unwrap()
-    //     .error_for_status()
-    // {
+    //     .header(reqwest::header::AUTHORIZATION, &token)
+    //     .json(&payload);
+    // if let Err(error) = client.send().await.unwrap().error_for_status() {
     //     console_error!("Error posting message to me: {}", error);
     // }
     let users_kv = env

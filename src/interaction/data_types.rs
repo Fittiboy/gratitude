@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-#[derive(Deserialize_repr, Serialize)]
+#[derive(Deserialize_repr, Serialize_repr)]
 #[repr(u8)]
 pub enum InteractionType {
     Ping = 1,
@@ -11,7 +11,7 @@ pub enum InteractionType {
     ModalSubmit = 5,
 }
 
-#[derive(Debug, Deserialize_repr, Serialize, Clone)]
+#[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
 #[repr(u8)]
 pub enum ComponentType {
     ActionRow = 1,
@@ -19,7 +19,6 @@ pub enum ComponentType {
     TextInput = 4,
 }
 
-#[allow(dead_code)]
 #[derive(Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 pub enum InteractionResponseType {
@@ -90,7 +89,7 @@ pub struct TextInput {
     pub placeholder: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Message {
     pub id: Option<String>,
     pub channel_id: Option<String>,
