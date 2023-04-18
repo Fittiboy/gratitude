@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use worker::{console_log, Env};
+use worker::{console_error, console_log};
 
+use crate::discord_token;
 use crate::error::Error;
 
 #[derive(Deserialize_repr, Serialize)]
@@ -273,16 +274,11 @@ impl Interaction {
         &self,
         ctx: &mut worker::RouteContext<()>,
     ) -> Result<InteractionResponse, Error> {
-        let token = discord_token(&ctx.env).await;
+        let token = discord_token(&ctx.env).unwrap();
         match self.r#type {
             InteractionType::Ping => Ok(self.handle_ping()),
             InteractionType::MessageComponent => Ok(self.handle_button()),
             InteractionType::ModalSubmit => Ok(self.handle_modal(token).await),
         }
     }
-}
-
-pub async fn discord_token(env: &Env) -> String {
-    let discord_token = env.var("DISCORD_TOKEN").unwrap().to_string();
-    "Bot ".to_string() + &discord_token
 }

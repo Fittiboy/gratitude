@@ -40,7 +40,7 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                     Response::from_json(&result)
                 }
                 Err(httperr) => {
-                    console_log!("Error response : {}", httperr.to_string());
+                    console_error!("Error response : {}", httperr.to_string());
                     Response::error(httperr.to_string(), httperr.status as u16)
                 }
             }
@@ -51,8 +51,13 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
 
 #[event(scheduled)]
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
-    // let discord_token = env.var("DISCORD_TOKEN").unwrap().to_string();
-    // let discord_token = "Bot ".to_string() + &discord_token;
+    // let token = match discord_token(&env) {
+    //     Ok(token) => token,
+    //     Err(err) => {
+    //         console_error!("Couldn't get Discord API token: {}", err);
+    //         return;
+    //     }
+    // };
     // let chan_id = "1096015676134658089";
     // let payload = Message::new(None);
     // let client = reqwest::Client::new();
@@ -61,14 +66,14 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     //         "https://discord.com/api/channels/{}/messages",
     //         chan_id
     //     ))
-    //     .header(reqwest::header::AUTHORIZATION, discord_token)
+    //     .header(reqwest::header::AUTHORIZATION, token)
     //     .json(&payload)
     //     .send()
     //     .await
     //     .unwrap()
     //     .error_for_status()
     // {
-    //     console_log!("Error posting message to me: {}", error);
+    //     console_error!("Error posting message to me: {}", error);
     // }
     let users_kv = env
         .kv("grateful_users")
@@ -76,4 +81,9 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     for user in message::registered_users(users_kv).await {
         user.prompt().await;
     }
+}
+
+pub fn discord_token(env: &Env) -> Result<String> {
+    let discord_token = env.var("DISCORD_TOKEN")?.to_string();
+    Ok("Bot ".to_string() + &discord_token)
 }

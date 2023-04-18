@@ -24,17 +24,17 @@ pub async fn registered_users(users_kv: KvStore) -> Vec<User> {
         .json::<Vec<String>>()
         .await
         .unwrap_or_else(|err| {
-            console_log!("Couldn't parse users into vector of strings: {}!", err);
+            console_error!("Couldn't parse users into vector of strings: {}!", err);
             panic!()
         })
         .unwrap_or_else(|| {
-            console_log!("Couldn't parse users into vector of strings!");
+            console_error!("No registered users!");
             panic!()
         })
         .into_iter()
         .map(|id| User {
             id: id.parse::<u64>().unwrap_or_else(|err| {
-                console_log!("Couldn't convert uid string into u64: {}", err);
+                console_error!("Couldn't convert uid string into u64: {}", err);
                 panic!()
             }),
         })
