@@ -63,15 +63,37 @@ impl Interaction {
 
     async fn handle_modal(&self, env: &Env) -> InteractionResponse {
         self.disable_button(env).await;
+        let entry = self.entry();
 
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
             data: Some(InteractionResponseData::Message(Message {
                 id: None,
                 channel_id: None,
-                content: Some("Neat, the interaction worked!".into()),
+                content: Some(format!("You said: {}", entry)),
                 components: Some(vec![]),
             })),
+        }
+    }
+
+    fn entry(&self) -> String {
+        let action_row = self.modal_data();
+        let action_row = action_row.components.iter().next().unwrap();
+        let Component::TextInputSubmit(TextInputSubmit { value, .. }) =
+            action_row.components.iter().next().unwrap() else {
+                unreachable!("Modals support only text inputs");
+            };
+        value.to_owned()
+    }
+
+    fn modal_data(&self) -> ModalSubmitData {
+        match self
+            .data
+            .as_ref()
+            .expect("Modal interactions always have data")
+        {
+            InteractionData::ModalInteractionData(ref data) => data.clone(),
+            _ => unreachable!("Modal type is guaranteed at this point"),
         }
     }
 
@@ -153,7 +175,9 @@ impl TextInput {
             label: "Express your gratitude for something!".into(),
             min_length: 5,
             max_length: 1000,
-            placeholder: "Today, I am grateful for...".into(),
+            placeholder:
+                "Today, I am grateful for… (a nice meal, someone smiling at me, how I perfectly parked my car)"
+                    .to_string(),
         }
     }
 }
