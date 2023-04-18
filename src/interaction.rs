@@ -1,33 +1,11 @@
 use serde::{Deserialize, Serialize};
-use serde_repr::{Deserialize_repr, Serialize_repr};
 use worker::{console_error, console_log};
 
 use crate::discord_token;
 use crate::error::Error;
 
-#[derive(Deserialize_repr, Serialize)]
-#[repr(u8)]
-enum InteractionType {
-    Ping = 1,
-    MessageComponent = 3,
-    ModalSubmit = 5,
-}
-
-#[derive(Deserialize_repr, Serialize)]
-#[repr(u8)]
-enum ComponentType {
-    Button = 2,
-}
-
-#[allow(dead_code)]
-#[derive(Serialize_repr, Deserialize_repr)]
-#[repr(u8)]
-pub(crate) enum InteractionResponseType {
-    Pong = 1,
-    ChannelMessageWithSource = 4,
-    ACKWithSource = 5,
-    Modal = 9,
-}
+mod identifiers;
+use identifiers::*;
 
 #[derive(Serialize)]
 #[serde(untagged)]
