@@ -274,11 +274,13 @@ impl Interaction {
         &self,
         ctx: &mut worker::RouteContext<()>,
     ) -> Result<InteractionResponse, Error> {
-        let token = discord_token(&ctx.env).unwrap();
         match self.r#type {
             InteractionType::Ping => Ok(self.handle_ping()),
             InteractionType::MessageComponent => Ok(self.handle_button()),
-            InteractionType::ModalSubmit => Ok(self.handle_modal(token).await),
+            InteractionType::ModalSubmit => {
+                let token = discord_token(&ctx.env).unwrap();
+                Ok(self.handle_modal(token).await)
+            }
         }
     }
 }
