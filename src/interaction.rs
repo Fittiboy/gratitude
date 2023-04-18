@@ -51,8 +51,14 @@ pub struct TextInputSubmit {
 
 #[derive(Deserialize, Serialize)]
 struct MessageComponentData {
-    custom_id: String,
+    custom_id: CustomId,
     component_type: ComponentType,
+}
+
+#[derive(Deserialize, Serialize)]
+enum CustomId {
+    #[serde(rename = "grateful_button")]
+    GratefulButton,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -74,7 +80,7 @@ impl Modal {
         Modal {
             custom_id: "grateful_modal".into(),
             title: format!("{}'s Gratitude Journal", name),
-            components: vec![ActionRow::with_textinput()],
+            components: vec![ActionRow::with_text_entry()],
         }
     }
 }
@@ -113,7 +119,7 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn new(journal_entry: Option<String>) -> Self {
+    pub fn from_entry(journal_entry: Option<String>) -> Self {
         let content = match journal_entry {
             Some(text) => Some(format!(
                 "Here's something you were grateful for in the past:\n{}",
@@ -125,7 +131,7 @@ impl Message {
             id: None,
             channel_id: None,
             content,
-            components: Some(vec![ActionRow::new()]),
+            components: Some(vec![ActionRow::with_entry_button()]),
         }
     }
 }
@@ -137,14 +143,14 @@ struct ActionRow {
 }
 
 impl ActionRow {
-    fn new() -> Self {
+    fn with_entry_button() -> Self {
         ActionRow {
             r#type: 1,
-            components: vec![Component::Button(Button::new())],
+            components: vec![Component::Button(Button::entry())],
         }
     }
 
-    fn with_textinput() -> Self {
+    fn with_text_entry() -> Self {
         ActionRow {
             r#type: 1,
             components: vec![Component::TextInput(TextInput::new())],
@@ -170,7 +176,7 @@ pub struct Button {
 }
 
 impl Button {
-    fn new() -> Self {
+    fn entry() -> Self {
         Button {
             r#type: 2,
             style: 3,
@@ -219,6 +225,17 @@ impl Interaction {
     }
 
     fn handle_button(&self) -> InteractionResponse {
+        if let Some(InteractionData::ComponentInteractionData(button)) = &self.data {
+            match button.custom_id {
+                CustomId::GratefulButton => self.grateful_button(),
+            }
+        } else {
+            console_error!("The message component is guaranteed to be a button in handle_button");
+            unreachable!();
+        }
+    }
+
+    fn grateful_button(&self) -> InteractionResponse {
         let name = self
             .user
             .clone()

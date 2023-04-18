@@ -59,7 +59,7 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     //     }
     // };
     // let chan_id = "1096015676134658089";
-    // let payload = Message::new(None);
+    // let payload = Message::from_entry(None);
     // let client = reqwest::Client::new();
     // if let Err(error) = client
     //     .post(format!(
