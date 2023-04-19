@@ -91,16 +91,10 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
 
     let mut rng = rand::thread_rng();
     let users = message::registered_users(&users_kv).await;
-    // let users = users.iter().filter(|_| rng.gen_range(1..=24) == 1);
+    let users = users.iter().filter(|_| rng.gen_range(1..=24) == 1);
 
     for user in users {
-        // user.prompt(&entries_kv, &mut client).await;
-        users_kv
-            .put(&serde_json::to_string(&user).unwrap(), "".to_string())
-            .unwrap()
-            .execute()
-            .await
-            .unwrap();
+        user.prompt(&entries_kv, &mut client).await;
     }
 }
 
