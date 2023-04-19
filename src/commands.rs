@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use worker::{console_debug, console_error, console_log};
 
@@ -7,27 +6,21 @@ use crate::interaction::{
 };
 use crate::DiscordAPIClient;
 
-#[async_trait]
-pub trait Command {
-    async fn handle(&self, interaction: Interaction) -> InteractionResponse;
-    async fn get_id(&self, client: &mut DiscordAPIClient) -> Option<u8>;
-    async fn register(&self, client: &mut DiscordAPIClient) -> Self;
-    async fn delete(&self, client: &mut DiscordAPIClient);
-}
-
-#[async_trait]
-impl Command for ApplicationCommand {
-    async fn handle(&self, interaction: Interaction) -> InteractionResponse {
+impl ApplicationCommand {
+    pub async fn handle(&self, interaction: Interaction) -> InteractionResponse {
         match interaction.data.as_ref().expect("Only pings have no data") {
             InteractionData::ApplicationCommandData(data) => match data.name {
                 CommandName::Start => interaction.handle_command(),
                 CommandName::Stop => interaction.handle_command(),
                 CommandName::Entry => interaction.handle_command(),
+                //TODO: remove this, just here for deleting /hello
+                _ => unreachable!(),
             },
             _ => unreachable!("Type of data is known at this point"),
         }
     }
-    async fn get_id(&self, client: &mut DiscordAPIClient) -> Option<u8> {
+
+    pub async fn get_id(&self, client: &mut DiscordAPIClient) -> Option<String> {
         let response = match client
             .get(&format!("applications/{}/commands", self.application_id))
             .send()
@@ -58,12 +51,12 @@ impl Command for ApplicationCommand {
         };
 
         match commands.iter().find(|command| command.name == self.name) {
-            Some(command) => command.id,
+            Some(command) => command.id.clone(),
             None => None,
         }
     }
 
-    async fn register(&self, client: &mut DiscordAPIClient) -> Self {
+    pub async fn register(&self, client: &mut DiscordAPIClient) -> Self {
         let response = match client
             .post(&format!("applications/{}/commands", self.application_id))
             .json(&CommandRegister::from(self))
@@ -94,8 +87,9 @@ impl Command for ApplicationCommand {
             }
         }
     }
-    async fn delete(&self, client: &mut DiscordAPIClient) {
-        if let Some(id) = self.id {
+
+    pub async fn delete(&self, client: &mut DiscordAPIClient) {
+        if let Some(ref id) = self.id {
             match client
                 .delete(&format!(
                     "applications/{}/commands/{}",
@@ -107,42 +101,44 @@ impl Command for ApplicationCommand {
                 Ok(response) => console_log!("Command {:?} deleted: {:#?}", self.name, response),
                 Err(err) => console_error!("Command {:?} not deleted: {}", self.name, err),
             }
+        } else {
+            console_log!("Command not found!");
         }
     }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ApplicationCommand {
-    id: Option<u8>,
-    r#type: Option<CommandType>,
-    application_id: String,
-    guild_id: Option<String>,
-    name: CommandName,
-    description: String,
-    options: Option<Vec<ApplicationCommandOption>>,
-    default_member_permissions: Option<String>,
-    dm_permission: Option<bool>,
-    version: String,
+    pub id: Option<String>,
+    pub r#type: Option<CommandType>,
+    pub application_id: String,
+    pub guild_id: Option<String>,
+    pub name: CommandName,
+    pub description: String,
+    pub options: Option<Vec<ApplicationCommandOption>>,
+    pub default_member_permissions: Option<String>,
+    pub dm_permission: Option<bool>,
+    pub version: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ApplicationCommandOption {
-    r#type: OptionType,
-    name: String,
-    description: String,
-    required: Option<bool>,
-    min_length: Option<u32>,
-    max_length: Option<u32>,
+    pub r#type: OptionType,
+    pub name: String,
+    pub description: String,
+    pub required: Option<bool>,
+    pub min_length: Option<u32>,
+    pub max_length: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct CommandRegister {
-    name: CommandName,
-    description: String,
-    options: Option<Vec<ApplicationCommandOption>>,
-    default_member_permissions: Option<String>,
-    dm_permission: Option<bool>,
-    r#type: Option<CommandType>,
+    pub name: CommandName,
+    pub description: String,
+    pub options: Option<Vec<ApplicationCommandOption>>,
+    pub default_member_permissions: Option<String>,
+    pub dm_permission: Option<bool>,
+    pub r#type: Option<CommandType>,
 }
 
 impl From<&ApplicationCommand> for CommandRegister {

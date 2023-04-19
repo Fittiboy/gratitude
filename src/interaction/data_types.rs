@@ -120,6 +120,8 @@ pub enum CommandName {
     Stop,
     #[serde(rename = "entry")]
     Entry,
+    #[serde(rename = "hello")]
+    Hello,
 }
 
 #[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]

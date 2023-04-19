@@ -55,20 +55,20 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     let token = discord_token(&env).unwrap();
     let mut client = DiscordAPIClient::new(token);
 
-    // let mut map = std::collections::HashMap::new();
-    // map.insert("recipient_id", "USER_ID_HERE");
-    // console_log!(
-    //     "{}",
-    //     client
-    //         .post("users/@me/channels")
-    //         .json(&map)
-    //         .send()
-    //         .await
-    //         .unwrap()
-    //         .text()
-    //         .await
-    //         .unwrap()
-    // );
+    let mut map = std::collections::HashMap::new();
+    map.insert("recipient_id", "USER_ID_HERE");
+    console_log!(
+        "{}",
+        client
+            .post("users/@me/channels")
+            .json(&map)
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap()
+    );
 
     let users_kv = env
         .kv("grateful_users")
@@ -131,4 +131,9 @@ impl DiscordAPIClient {
 pub fn discord_token(env: &Env) -> Result<String> {
     let discord_token = env.var("DISCORD_TOKEN")?.to_string();
     Ok("Bot ".to_string() + &discord_token)
+}
+
+pub fn discord_application_id(env: &Env) -> Result<String> {
+    let application_id = env.var("DISCORD_APPLICATION_ID")?.to_string();
+    Ok(application_id)
 }
