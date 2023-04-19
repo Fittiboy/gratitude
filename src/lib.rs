@@ -1,4 +1,5 @@
-use reqwest::{header::AUTHORIZATION, Client, RequestBuilder};
+use rand::Rng;
+use reqwest::{header, Client, RequestBuilder};
 use worker::*;
 
 mod bot;
@@ -50,39 +51,74 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
 
 #[event(scheduled)]
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
-    // let users_kv = env
-    //     .kv("grateful_users")
-    //     .expect("Worker should have access to this binding");
-    // for user in message::registered_users(users_kv).await {
-    //     user.prompt(&env).await;
-    // }
+    let token = discord_token(&env).unwrap();
+    let mut client = DiscordAPIClient::new(token);
+
+    // let mut map = std::collections::HashMap::new();
+    // map.insert("recipient_id", "USER_ID_HERE");
+    // console_log!(
+    //     "{}",
+    //     client
+    //         .post("users/@me/channels")
+    //         .json(&map)
+    //         .send()
+    //         .await
+    //         .unwrap()
+    //         .text()
+    //         .await
+    //         .unwrap()
+    // );
+
+    let users_kv = env
+        .kv("grateful_users")
+        .expect("Worker should have access to grateful_users binding");
+    let entries_kv = env
+        .kv("thankful")
+        .expect("Worker should have access to thankful binding");
+
+    let mut rng = rand::thread_rng();
+    let users = message::registered_users(users_kv).await;
+    let users = users.iter().filter(|_| rng.gen_range(1..=24) == 1);
+
+    for user in users {
+        user.prompt(&entries_kv, &mut client).await;
+    }
 }
 
-pub struct DiscordAPIBuilder {
-    token: String,
-    url: String,
+pub struct DiscordAPIClient {
+    client: Client,
 }
 
-impl DiscordAPIBuilder {
-    pub fn new(env: &Env) -> Self {
-        Self {
-            token: discord_token(env).unwrap(),
-            url: "https://discord.com/api/".into(),
-        }
+impl DiscordAPIClient {
+    pub fn new(token: String) -> Self {
+        let headers = Self::headers(token.clone());
+        let client = reqwest::Client::builder()
+            .default_headers(headers)
+            .build()
+            .unwrap();
+        Self { client }
     }
 
     pub fn patch(&mut self, url: &str) -> RequestBuilder {
-        self.url += url;
-        self.authorized(Client::new().patch(&self.url))
+        let url = format!("https://discord.com/api/{}", url);
+        self.client.patch(&url)
     }
 
     pub fn post(&mut self, url: &str) -> RequestBuilder {
-        self.url += url;
-        self.authorized(Client::new().post(&self.url))
+        let url = format!("https://discord.com/api/{}", url);
+        self.client.post(&url)
     }
 
-    pub fn authorized(&self, builder: RequestBuilder) -> RequestBuilder {
-        builder.header(AUTHORIZATION, &self.token)
+    pub fn get(&mut self, url: &str) -> RequestBuilder {
+        let url = format!("https://discord.com/api/{}", url);
+        self.client.get(&url)
+    }
+
+    fn headers(token: String) -> header::HeaderMap {
+        let mut headers = header::HeaderMap::new();
+        let auth_value = header::HeaderValue::from_str(&token).unwrap();
+        headers.insert(header::AUTHORIZATION, auth_value);
+        headers
     }
 }
 

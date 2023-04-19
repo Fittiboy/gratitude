@@ -1,7 +1,7 @@
 use worker::{console_error, console_log, kv::KvStore, Env};
 
 use crate::error::Error;
-use crate::DiscordAPIBuilder;
+use crate::{discord_token, DiscordAPIClient};
 
 mod data_types;
 pub use data_types::*;
@@ -64,7 +64,8 @@ impl Interaction {
     async fn handle_modal(&self, env: &Env) -> InteractionResponse {
         let entry = self.entry();
         self.add_entry(env, &entry).await;
-        self.disable_button(env).await;
+        let token = discord_token(env).unwrap();
+        self.disable_button(token).await;
 
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
@@ -142,12 +143,12 @@ impl Interaction {
         )
     }
 
-    async fn disable_button(&self, env: &Env) {
+    async fn disable_button(&self, token: String) {
         let (message_id, mut payload) = self.id_and_payload();
         Self::prepare_button_disable_payload(&mut payload);
         console_log!("Payload to disable button: {:#?}", payload);
 
-        self.submit_disable_button_request(message_id, env, payload)
+        self.submit_disable_button_request(message_id, token, payload)
             .await;
     }
 
@@ -168,11 +169,11 @@ impl Interaction {
     async fn submit_disable_button_request(
         &self,
         message_id: String,
-        env: &Env,
+        token: String,
         payload: MessageEdit,
     ) {
         let channel_id = self.channel_id.clone().unwrap();
-        let client = DiscordAPIBuilder::new(env)
+        let client = DiscordAPIClient::new(token)
             .patch(&format!("channels/{}/messages/{}", channel_id, message_id,));
         if let Err(error) = client
             .json(&payload)
@@ -216,17 +217,22 @@ impl Message {
     pub fn from_entry(journal_entry: Option<String>) -> Self {
         let content = match journal_entry {
             Some(text) => Some(format!(
-                "*Here's something you were grateful for in the past:*\n{}",
+                "**Here's something you were grateful for in the past:**\n{}",
                 text
             )),
             None => Some("Hi there, welcome to gratitude bot!".into()),
         };
-        Message {
+        let payload = Message {
             id: None,
             channel_id: None,
             content,
             components: Some(vec![ActionRow::with_entry_button()]),
-        }
+        };
+        console_log!(
+            "Payload: {}",
+            serde_json::to_string_pretty(&payload).unwrap()
+        );
+        payload
     }
 }
 

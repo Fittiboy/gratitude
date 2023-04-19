@@ -1,5 +1,6 @@
 use crate::interaction::Message;
-use crate::DiscordAPIBuilder;
+use crate::DiscordAPIClient;
+use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use worker::kv::KvStore;
 use worker::*;
@@ -11,30 +12,28 @@ pub struct User {
 }
 
 impl User {
-    pub async fn prompt(&self, env: &Env) {
-        let kv = env.kv("thankful").unwrap();
-        console_log!("KV: {:?}", kv.list().execute().await.unwrap());
-        let entries = kv.get(&self.uid).text().await.unwrap();
-        console_log!("Entries: {:?}", entries);
-        let entries: Vec<String> = match entries {
-            Some(entries) => serde_json::from_str(&entries).unwrap(),
-            None => Vec::new(),
-        };
-        //TODO actually grab random entry!
-        let entry = entries.iter().next();
-        let payload = Message::from_entry(entry.cloned());
-        console_log!(
-            "Payload: {}",
-            serde_json::to_string_pretty(&payload).unwrap()
-        );
+    pub async fn prompt(&self, kv: &KvStore, client: &mut DiscordAPIClient) {
+        let entry = self.random_entry(kv).await;
+        let payload = Message::from_entry(entry);
 
-        let client = DiscordAPIBuilder::new(&env)
+        let client = client
             .post(&format!("channels/{}/messages", self.channel_id))
             .json(&payload);
         if let Err(error) = client.send().await.unwrap().error_for_status() {
             console_error!("Error posting message to me: {}", error);
         }
         console_log!("Prompting {}", self.uid);
+    }
+
+    async fn random_entry(&self, kv: &KvStore) -> Option<String> {
+        let entries = kv.get(&self.uid).text().await.unwrap();
+        console_log!("Entries: {:?}", entries);
+        let entries: Vec<String> = match entries {
+            Some(entries) => serde_json::from_str(&entries).unwrap(),
+            None => Vec::new(),
+        };
+        let mut rng = rand::thread_rng();
+        entries.choose(&mut rng).cloned()
     }
 }
 
