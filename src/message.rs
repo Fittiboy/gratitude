@@ -19,10 +19,10 @@ impl User {
         let client = client
             .post(&format!("channels/{}/messages", self.channel_id))
             .json(&payload);
-        if let Err(error) = client.send().await.unwrap().error_for_status() {
-            console_error!("Error posting message to me: {}", error);
-        }
         console_log!("Prompting {}", self.uid);
+        if let Err(error) = client.send().await.unwrap().error_for_status() {
+            console_error!("Error sending message to user {}: {}", self.uid, error);
+        }
     }
 
     async fn random_entry(&self, kv: &KvStore) -> Option<String> {
