@@ -38,11 +38,78 @@ impl Interaction {
         client: &mut DiscordAPIClient,
         kv: KvStore,
     ) -> InteractionResponse {
+        let (user_id, mut channel_id) = match self.user.as_ref() {
+            Some(User { id, .. }) => {
+                let user_id = id.clone();
+                let channel_id = self
+                    .channel_id
+                    .clone()
+                    .expect("If user struct is there, channel_id will be the DM channel");
+                (user_id, channel_id)
+            }
+            None => (
+                self.member
+                    .as_ref()
+                    .unwrap()
+                    .user
+                    .as_ref()
+                    .unwrap()
+                    .id
+                    .clone(),
+                String::new(),
+            ),
+        };
+        let mut channel_payload = std::collections::HashMap::new();
+        if channel_id.is_empty() {
+            channel_payload.insert("recipient_id", user_id.clone());
+            let response = client
+                .post("users/@me/channels")
+                .json(&channel_payload)
+                .send()
+                .await;
+            let channel = match response {
+                Ok(response) => response.json::<Channel>().await,
+                Err(err) => {
+                    console_error!("Couldn't get DM channel: {}", err);
+                    return InteractionResponse::error();
+                }
+            };
+            match channel {
+                Ok(channel) => {
+                    channel_id = channel.id;
+                }
+                Err(err) => {
+                    console_error!("Couldn't get DM channel: {}", err);
+                    return InteractionResponse::error();
+                }
+            }
+        };
+        let users = match kv.get("users").json::<Vec<message::User>>().await {
+            Ok(Some(users)) => users,
+            Ok(None) => {
+                console_error!("User list unexpectedly empty!");
+                return InteractionResponse::error();
+            }
+            Err(err) => {
+                console_error!("Couldn't get list of users: {}", err);
+                return InteractionResponse::error();
+            }
+        };
+
         match self.data.as_ref().expect("only pings have no data") {
             InteractionData::ApplicationCommandData(data) => match data.name {
-                CommandName::Start => self.handle_start(data, client, kv).await,
-                CommandName::Stop => self.handle_stop(data, client, kv).await,
-                CommandName::Entry => self.handle_entry(data, client, kv).await,
+                CommandName::Start => {
+                    self.handle_start(data, client, kv, user_id, channel_id, users)
+                        .await
+                }
+                CommandName::Stop => {
+                    self.handle_stop(data, client, kv, user_id, channel_id, users)
+                        .await
+                }
+                CommandName::Entry => {
+                    self.handle_entry(data, client, kv, user_id, channel_id, users)
+                        .await
+                }
             },
             _ => unreachable!("Commands are always commands (shocking, I know!)"),
         }
@@ -53,78 +120,33 @@ impl Interaction {
         data: &ApplicationCommandData,
         client: &mut DiscordAPIClient,
         kv: KvStore,
+        user_id: String,
+        channel_id: String,
+        mut users: Vec<message::User>,
     ) -> InteractionResponse {
         console_log!("Handling start!");
-        let user_id = match self.user.as_ref() {
-            Some(User { id, .. }) => id.clone(),
-            None => self
-                .member
-                .as_ref()
-                .unwrap()
-                .user
-                .as_ref()
-                .unwrap()
-                .id
-                .clone(),
-        };
-        let mut channel_payload = std::collections::HashMap::new();
-        channel_payload.insert("recipient_id", user_id.clone());
-        let response = client
-            .post("users/@me/channels")
-            .json(&channel_payload)
-            .send()
-            .await;
-
-        let channel = match response {
-            Ok(response) => response.json::<Channel>().await,
-            Err(err) => {
-                console_error!("Couldn't get DM channel: {}", err);
-                return InteractionResponse::error();
-            }
-        };
-
-        match channel {
-            Ok(channel) => {
-                let channel_id = channel.id.clone();
-                let payload = Message::welcome();
-                let mut users = match kv.get("users").json::<Vec<message::User>>().await {
-                    Ok(Some(users)) => users,
-                    Ok(None) => {
-                        console_error!("User list unexpectedly empty!");
-                        return InteractionResponse::error();
-                    }
-                    Err(err) => {
-                        console_error!("Couldn't get list of users: {}", err);
-                        return InteractionResponse::error();
-                    }
-                };
-                if users.iter().find(|user| user.uid == user_id).is_some() {
-                    return InteractionResponse::already_active();
-                } else {
-                    users.push(message::User {
-                        uid: user_id.clone(),
-                        channel_id: channel_id.clone(),
-                    });
-                    if let Err(err) = kv.put("users", users).unwrap().execute().await {
-                        console_error!("Couldn't add user to list: {}", err);
-                        return InteractionResponse::error();
-                    }
-                }
-
-                let client = client
-                    .post(&format!("channels/{}/messages", channel_id))
-                    .json(&payload);
-                if let Err(error) = client.send().await.unwrap().error_for_status() {
-                    console_error!("Error sending message to user {}: {}", user_id, error);
-                    return InteractionResponse::dms_closed();
-                }
-                console_log!("New user: {:?}", data.target_id);
-            }
-            Err(err) => {
-                console_error!("Couldn't get DM channel: {}", err);
+        if users.iter().find(|user| user.uid == user_id).is_some() {
+            return InteractionResponse::already_active();
+        } else {
+            users.push(message::User {
+                uid: user_id.clone(),
+                channel_id: channel_id.clone(),
+            });
+            if let Err(err) = kv.put("users", users).unwrap().execute().await {
+                console_error!("Couldn't add user to list: {}", err);
                 return InteractionResponse::error();
             }
         }
+
+        let payload = Message::welcome();
+        let client = client
+            .post(&format!("channels/{}/messages", channel_id))
+            .json(&payload);
+        if let Err(error) = client.send().await.unwrap().error_for_status() {
+            console_error!("Error sending message to user {}: {}", user_id, error);
+            return InteractionResponse::dms_closed();
+        }
+        console_log!("New user: {:?}", data.target_id);
 
         InteractionResponse::success()
     }
@@ -134,7 +156,42 @@ impl Interaction {
         data: &ApplicationCommandData,
         client: &mut DiscordAPIClient,
         kv: KvStore,
+        user_id: String,
+        channel_id: String,
+        mut users: Vec<message::User>,
     ) -> InteractionResponse {
+        console_log!("Handling stop!");
+        if users.iter().find(|user| user.uid == user_id).is_none() {
+            return InteractionResponse::not_active();
+        } else {
+            let original_length = users.len();
+            users.retain(|user| user.uid != user_id);
+            let length_after = users.len();
+            if !(original_length - 1 == length_after) {
+                console_error!(
+                    "Length after removing not one less. Old: {}, New: {}",
+                    original_length,
+                    length_after
+                );
+                return InteractionResponse::error();
+            } else {
+                if let Err(err) = kv.put("users", users).unwrap().execute().await {
+                    console_error!("Couldn't remove user from list: {}", err);
+                    return InteractionResponse::error();
+                }
+            }
+        }
+
+        let payload = Message::goodbye();
+        let client = client
+            .post(&format!("channels/{}/messages", channel_id))
+            .json(&payload);
+        if let Err(error) = client.send().await.unwrap().error_for_status() {
+            console_error!("Error sending message to user {}: {}", user_id, error);
+            return InteractionResponse::dms_closed();
+        }
+        console_log!("User removed: {:?}", data.target_id);
+
         InteractionResponse::success()
     }
 
@@ -143,6 +200,9 @@ impl Interaction {
         data: &ApplicationCommandData,
         client: &mut DiscordAPIClient,
         kv: KvStore,
+        user_id: String,
+        channel_id: String,
+        mut users: Vec<message::User>,
     ) -> InteractionResponse {
         InteractionResponse::success()
     }
@@ -338,6 +398,13 @@ impl InteractionResponse {
             data: Some(InteractionResponseData::Message(Message::already_active())),
         }
     }
+
+    fn not_active() -> InteractionResponse {
+        InteractionResponse {
+            r#type: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(InteractionResponseData::Message(Message::not_active())),
+        }
+    }
 }
 
 impl Modal {
@@ -369,6 +436,15 @@ impl TextInput {
 impl Message {
     pub fn welcome() -> Self {
         let content = Some("Hi there! welcome to Gratitude Bot! 🥳".into());
+        Message {
+            content,
+            components: Some(vec![ActionRow::with_entry_button()]),
+            ..Default::default()
+        }
+    }
+
+    pub fn goodbye() -> Self {
+        let content = Some("You will no longer receive reminders! See you around! 😊".into());
         Message {
             content,
             components: Some(vec![ActionRow::with_entry_button()]),
@@ -429,6 +505,18 @@ impl Message {
                 "Looks like you're already an active user! {} {}",
                 "The bot will randomly send you reminders about once per day.",
                 "Use the /stop command to stop receiving those reminders!"
+            )),
+            flags: Some(1 << 6),
+            ..Default::default()
+        }
+    }
+
+    pub fn not_active() -> Self {
+        Message {
+            content: Some(format!(
+                "Looks like you're not an active user! {} {}",
+                "The bot will not send you reminders.",
+                "Use the /start command to start receiving those reminders!"
             )),
             flags: Some(1 << 6),
             ..Default::default()
