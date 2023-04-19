@@ -205,10 +205,35 @@ pub struct Message {
     pub id: Option<String>,
     pub channel_id: Option<String>,
     pub content: Option<String>,
+    pub flags: Option<u16>,
     pub components: Option<Vec<ActionRow>>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct MessageEdit {
     pub components: Vec<ActionRow>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct Channel {
+    pub id: String,
+    pub r#type: ChannelType,
+    pub guild_id: Option<String>,
+}
+
+#[derive(Debug, Serialize_repr, Deserialize_repr, Clone)]
+#[repr(u8)]
+pub enum ChannelType {
+    GuildText = 0,
+    Dm = 1,
+    GuildVoice = 2,
+    GroupDm = 3,
+    GuildCategory = 4,
+    GuildAnnouncement = 5,
+    AnnouncementThread = 10,
+    PublicThread = 11,
+    PrivateThread = 12,
+    GuildStageVoice = 13,
+    GuildDirectory = 14,
+    GuildForum = 15,
 }

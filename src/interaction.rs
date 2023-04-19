@@ -1,7 +1,7 @@
 use worker::{console_error, console_log, kv::KvStore, Env};
 
 use crate::error::Error;
-use crate::{discord_token, DiscordAPIClient};
+use crate::{discord_token, message, DiscordAPIClient};
 
 pub mod data_types;
 pub use data_types::*;
@@ -13,7 +13,14 @@ impl Interaction {
     ) -> Result<InteractionResponse, Error> {
         match self.r#type {
             InteractionType::Ping => Ok(self.handle_ping()),
-            InteractionType::ApplicationCommand => Ok(self.handle_command()),
+            InteractionType::ApplicationCommand => {
+                let mut client = DiscordAPIClient::new(discord_token(&ctx.env).unwrap());
+                let users_kv = ctx
+                    .env
+                    .kv("grateful_users")
+                    .expect("Worker should have access to grateful_users binding");
+                Ok(self.handle_command(&mut client, users_kv).await)
+            }
             InteractionType::MessageComponent => Ok(self.handle_component()),
             InteractionType::ModalSubmit => Ok(self.handle_modal(&ctx.env).await),
         }
@@ -26,11 +33,106 @@ impl Interaction {
         }
     }
 
-    pub fn handle_command(&self) -> InteractionResponse {
-        InteractionResponse {
-            r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: None,
+    pub async fn handle_command(
+        &self,
+        client: &mut DiscordAPIClient,
+        kv: KvStore,
+    ) -> InteractionResponse {
+        match self.data.as_ref().expect("only pings have no data") {
+            InteractionData::ApplicationCommandData(data) => match data.name {
+                CommandName::Start => self.handle_start(data, client, kv).await,
+                CommandName::Stop => self.handle_stop(data, client, kv).await,
+                CommandName::Entry => self.handle_entry(data, client, kv).await,
+            },
+            _ => unreachable!("Commands are always commands (shocking, I know!)"),
         }
+    }
+
+    async fn handle_start(
+        &self,
+        data: &ApplicationCommandData,
+        client: &mut DiscordAPIClient,
+        kv: KvStore,
+    ) -> InteractionResponse {
+        let user_id = self.user.as_ref().unwrap().id.clone();
+        let mut channel_payload = std::collections::HashMap::new();
+        channel_payload.insert("recipient_id", user_id.clone());
+        let response = client
+            .post("users/@me/channels")
+            .json(&channel_payload)
+            .send()
+            .await;
+
+        let channel = match response {
+            Ok(response) => response.json::<Channel>().await,
+            Err(err) => {
+                console_error!("Couldn't get DM channel: {}", err);
+                return InteractionResponse::error();
+            }
+        };
+
+        match channel {
+            Ok(channel) => {
+                let channel_id = channel.id.clone();
+                let payload = Message::welcome();
+                let mut users = match kv.get("users").json::<Vec<message::User>>().await {
+                    Ok(Some(users)) => users,
+                    Ok(None) => {
+                        console_error!("User list unexpectedly empty!");
+                        return InteractionResponse::error();
+                    }
+                    Err(err) => {
+                        console_error!("Couldn't get list of users: {}", err);
+                        return InteractionResponse::error();
+                    }
+                };
+                if users.iter().find(|user| user.uid == user_id).is_some() {
+                    return InteractionResponse::already_active();
+                } else {
+                    users.push(message::User {
+                        uid: user_id.clone(),
+                        channel_id: channel_id.clone(),
+                    });
+                    if let Err(err) = kv.put("users", users).unwrap().execute().await {
+                        console_error!("Couldn't add user to list: {}", err);
+                        return InteractionResponse::error();
+                    }
+                }
+
+                let client = client
+                    .post(&format!("channels/{}/messages", channel_id))
+                    .json(&payload);
+                if let Err(error) = client.send().await.unwrap().error_for_status() {
+                    console_error!("Error sending message to user {}: {}", user_id, error);
+                    return InteractionResponse::dms_closed();
+                }
+                console_log!("New user: {:?}", data.target_id);
+            }
+            Err(err) => {
+                console_error!("Couldn't get DM channel: {}", err);
+                return InteractionResponse::error();
+            }
+        }
+
+        InteractionResponse::success()
+    }
+
+    async fn handle_stop(
+        &self,
+        data: &ApplicationCommandData,
+        client: &mut DiscordAPIClient,
+        kv: KvStore,
+    ) -> InteractionResponse {
+        InteractionResponse::success()
+    }
+
+    async fn handle_entry(
+        &self,
+        data: &ApplicationCommandData,
+        client: &mut DiscordAPIClient,
+        kv: KvStore,
+    ) -> InteractionResponse {
+        InteractionResponse::success()
     }
 
     fn handle_component(&self) -> InteractionResponse {
@@ -81,6 +183,7 @@ impl Interaction {
                 id: None,
                 channel_id: None,
                 content: Some(format!("You said: {}", entry)),
+                flags: None,
                 components: Some(vec![]),
             })),
         }
@@ -195,6 +298,36 @@ impl Interaction {
     }
 }
 
+impl InteractionResponse {
+    fn success() -> InteractionResponse {
+        InteractionResponse {
+            r#type: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(InteractionResponseData::Message(Message::success())),
+        }
+    }
+
+    fn error() -> InteractionResponse {
+        InteractionResponse {
+            r#type: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(InteractionResponseData::Message(Message::error())),
+        }
+    }
+
+    fn dms_closed() -> InteractionResponse {
+        InteractionResponse {
+            r#type: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(InteractionResponseData::Message(Message::dms_closed())),
+        }
+    }
+
+    fn already_active() -> InteractionResponse {
+        InteractionResponse {
+            r#type: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(InteractionResponseData::Message(Message::already_active())),
+        }
+    }
+}
+
 impl Modal {
     pub fn with_name(name: String) -> Self {
         Modal {
@@ -222,25 +355,82 @@ impl TextInput {
 }
 
 impl Message {
-    pub fn from_entry(journal_entry: Option<String>) -> Self {
-        let content = match journal_entry {
-            Some(text) => Some(format!(
-                "**Here's something you were grateful for in the past:**\n{}",
-                text
-            )),
-            None => Some("Hi there, welcome to gratitude bot!".into()),
-        };
+    pub fn welcome() -> Self {
+        let content = Some("Hi there! welcome to Gratitude Bot! 🥳".into());
         let payload = Message {
-            id: None,
-            channel_id: None,
             content,
             components: Some(vec![ActionRow::with_entry_button()]),
+            ..Default::default()
         };
         console_log!(
             "Payload: {}",
             serde_json::to_string_pretty(&payload).unwrap()
         );
         payload
+    }
+
+    pub fn from_entry(journal_entry: Option<String>) -> Self {
+        let content = match journal_entry {
+            Some(text) => Some(format!(
+                "**Here's something you were grateful for in the past:**\n{}",
+                text
+            )),
+            None => Some("Hope you're having a great day!".into()),
+        };
+        let payload = Message {
+            content,
+            components: Some(vec![ActionRow::with_entry_button()]),
+            ..Default::default()
+        };
+        console_log!(
+            "Payload: {}",
+            serde_json::to_string_pretty(&payload).unwrap()
+        );
+        payload
+    }
+
+    pub fn success() -> Self {
+        Message {
+            content: Some(
+                "It lookes like that worked! If it didn't do what you expected, contact Fitti#6969"
+                    .into(),
+            ),
+            flags: Some(1 << 6),
+            ..Default::default()
+        }
+    }
+
+    pub fn error() -> Self {
+        Message {
+            content: Some(
+                "Oh no! It looks like something went wrong!\nAsk Fitti#6969 for help!".into(),
+            ),
+            flags: Some(1 << 6),
+            ..Default::default()
+        }
+    }
+
+    pub fn dms_closed() -> Self {
+        Message {
+            content: Some(format!(
+                "It looks like the bot can't DM you! Check your privacy settings: {}",
+                "https://support.discord.com/hc/en-us/articles/217916488-Blocking-Privacy-Settings",
+            )),
+            flags: Some(1 << 6),
+            ..Default::default()
+        }
+    }
+
+    pub fn already_active() -> Self {
+        Message {
+            content: Some(format!(
+                "Looks like you're already an active user! {} {}",
+                "The bot will randomly send you reminders about once per day.",
+                "Use the /stop command to stop receiving those reminders!"
+            )),
+            flags: Some(1 << 6),
+            ..Default::default()
+        }
     }
 }
 
@@ -256,6 +446,18 @@ impl ActionRow {
         ActionRow {
             r#type: ComponentType::ActionRow,
             components: vec![Component::TextInput(TextInput::new())],
+        }
+    }
+}
+
+impl Default for Message {
+    fn default() -> Self {
+        Message {
+            id: None,
+            channel_id: None,
+            content: None,
+            flags: None,
+            components: None,
         }
     }
 }
