@@ -3,7 +3,7 @@ use worker::{console_error, console_log, kv::KvStore, Env};
 use crate::error::Error;
 use crate::{discord_token, DiscordAPIClient};
 
-mod data_types;
+pub mod data_types;
 pub use data_types::*;
 
 impl Interaction {

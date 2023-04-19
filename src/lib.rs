@@ -3,6 +3,7 @@ use reqwest::{header, Client, RequestBuilder};
 use worker::*;
 
 mod bot;
+mod commands;
 mod embed;
 mod error;
 mod http;
