@@ -28,6 +28,7 @@ pub enum InteractionType {
 pub enum InteractionData {
     ComponentInteractionData(MessageComponentData),
     ModalInteractionData(ModalSubmitData),
+    ApplicationCommandData(ApplicationCommandData),
 }
 
 #[derive(Deserialize, Serialize)]
@@ -99,6 +100,58 @@ pub struct TextInputSubmit {
     pub r#type: ComponentType,
     pub custom_id: CustomId,
     pub value: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct ApplicationCommandData {
+    pub id: String,
+    pub name: String,
+    pub r#type: CommandType,
+    pub options: Option<Vec<OptionData>>,
+    pub guild_id: Option<String>,
+    pub target_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
+#[repr(u8)]
+pub enum CommandType {
+    ChatInput = 1,
+    User = 2,
+    Message = 3,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct OptionData {
+    pub name: String,
+    pub r#type: OptionType,
+    pub value: Option<OptionValue>,
+    pub options: Option<Vec<OptionData>>,
+    pub focues: bool,
+}
+
+#[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
+#[repr(u8)]
+pub enum OptionType {
+    SubCommand = 1,
+    SubCommandGroup = 2,
+    r#String = 3,
+    Integer = 4,
+    Boolean = 5,
+    User = 6,
+    Channel = 7,
+    Role = 8,
+    Mentionable = 9,
+    Number = 10,
+    Attachment = 11,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(untagged)]
+pub enum OptionValue {
+    r#String(String),
+    Integer(u32),
+    Float(f64),
+    Bool(bool),
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
