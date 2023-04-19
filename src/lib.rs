@@ -13,7 +13,7 @@ mod message;
 mod utils;
 mod verification;
 
-use durable::Userlist;
+pub use durable::Userlist;
 
 fn log_request(req: &Request) {
     console_log!(
