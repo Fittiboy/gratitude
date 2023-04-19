@@ -55,8 +55,9 @@ impl Interaction {
         kv: KvStore,
     ) -> InteractionResponse {
         console_log!("Handling start!");
-        let user_id = match self.user.as_ref().unwrap().id.clone() {
-            string if string.is_empty() => self
+        let user_id = match self.user.as_ref() {
+            Some(User { id, .. }) => id.clone(),
+            None => self
                 .member
                 .as_ref()
                 .unwrap()
@@ -65,7 +66,6 @@ impl Interaction {
                 .unwrap()
                 .id
                 .clone(),
-            string => string,
         };
         let mut channel_payload = std::collections::HashMap::new();
         channel_payload.insert("recipient_id", user_id.clone());
@@ -369,16 +369,11 @@ impl TextInput {
 impl Message {
     pub fn welcome() -> Self {
         let content = Some("Hi there! welcome to Gratitude Bot! 🥳".into());
-        let payload = Message {
+        Message {
             content,
             components: Some(vec![ActionRow::with_entry_button()]),
             ..Default::default()
-        };
-        console_log!(
-            "Payload: {}",
-            serde_json::to_string_pretty(&payload).unwrap()
-        );
-        payload
+        }
     }
 
     pub fn from_entry(journal_entry: Option<String>) -> Self {
@@ -389,16 +384,11 @@ impl Message {
             )),
             None => Some("Hope you're having a great day!".into()),
         };
-        let payload = Message {
+        Message {
             content,
             components: Some(vec![ActionRow::with_entry_button()]),
             ..Default::default()
-        };
-        console_log!(
-            "Payload: {}",
-            serde_json::to_string_pretty(&payload).unwrap()
-        );
-        payload
+        }
     }
 
     pub fn success() -> Self {
