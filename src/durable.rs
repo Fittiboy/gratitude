@@ -1,8 +1,33 @@
 use crate::message::registered_users;
-use async_std::task::block_on;
 
 use crate::message::User;
+use std::future::Future;
+use std::sync::Arc;
+use std::task::{Context, Poll, Wake};
+use std::thread::{self, Thread};
 use worker::*;
+
+struct ThreadWaker(Thread);
+
+impl Wake for ThreadWaker {
+    fn wake(self: Arc<Self>) {
+        self.0.unpark();
+    }
+}
+
+/// Run a future to completion on the current thread.
+fn block_on<T>(fut: impl Future<Output = T>) -> T {
+    let mut fut = Box::pin(fut);
+    let t = thread::current();
+    let waker = Arc::new(ThreadWaker(t)).into();
+    let mut cx = Context::from_waker(&waker);
+    loop {
+        match fut.as_mut().poll(&mut cx) {
+            Poll::Ready(res) => return res,
+            Poll::Pending => thread::park(),
+        }
+    }
+}
 
 #[durable_object]
 pub struct Userlist {
