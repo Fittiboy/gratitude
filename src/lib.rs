@@ -55,20 +55,32 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     let token = discord_token(&env).unwrap();
     let mut client = DiscordAPIClient::new(token);
 
-    // let mut map = std::collections::HashMap::new();
-    // map.insert("recipient_id", "USER_ID_HERE");
-    // console_log!(
-    //     "{}",
-    //     client
-    //         .post("users/@me/channels")
-    //         .json(&map)
-    //         .send()
-    //         .await
-    //         .unwrap()
-    //         .text()
-    //         .await
-    //         .unwrap()
-    // );
+    // use crate::commands::ApplicationCommand;
+    // use crate::interaction::data_types::CommandName;
+    // let application_id = discord_application_id(&env).unwrap();
+    // ApplicationCommand {
+    //     application_id: application_id.clone(),
+    //     description: "Start receiving reminders from the bot!".into(),
+    //     ..Default::default()
+    // }
+    // .register(&mut client)
+    // .await;
+    // ApplicationCommand {
+    //     name: CommandName::Stop,
+    //     application_id: application_id.clone(),
+    //     description: "Stop receiving reminders from the bot!".into(),
+    //     ..Default::default()
+    // }
+    // .register(&mut client)
+    // .await;
+    // ApplicationCommand {
+    //     name: CommandName::Entry,
+    //     description: "Add an entry to your gratitude journal!".into(),
+    //     application_id,
+    //     ..Default::default()
+    // }
+    // .register(&mut client)
+    // .await;
 
     let users_kv = env
         .kv("grateful_users")

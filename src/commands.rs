@@ -92,6 +92,23 @@ impl ApplicationCommand {
     }
 }
 
+impl Default for ApplicationCommand {
+    fn default() -> Self {
+        ApplicationCommand {
+            id: None,
+            r#type: None,
+            application_id: String::new(),
+            guild_id: None,
+            name: CommandName::Start,
+            description: String::new(),
+            options: None,
+            default_member_permissions: None,
+            dm_permission: Some(true),
+            version: None,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ApplicationCommand {
     pub id: Option<String>,
@@ -103,7 +120,7 @@ pub struct ApplicationCommand {
     pub options: Option<Vec<ApplicationCommandOption>>,
     pub default_member_permissions: Option<String>,
     pub dm_permission: Option<bool>,
-    pub version: String,
+    pub version: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
