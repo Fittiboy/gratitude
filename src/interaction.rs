@@ -255,7 +255,7 @@ impl Interaction {
             data: Some(InteractionResponseData::Message(Message {
                 id: None,
                 channel_id: None,
-                content: Some(format!("You said: {}", entry)),
+                content: Some(format!("**You added the following entry:**\n{}", entry)),
                 flags: None,
                 components: Some(vec![]),
             })),
