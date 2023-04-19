@@ -42,7 +42,7 @@ struct Journal {
     entries: Vec<String>,
 }
 
-pub async fn registered_users(users_kv: KvStore) -> Vec<User> {
+pub async fn registered_users(users_kv: &KvStore) -> Vec<User> {
     users_kv
         .get("users")
         .json::<Vec<User>>()
