@@ -1,5 +1,5 @@
 use crate::message::registered_users;
-use smol::block_on;
+use async_std::task::block_on;
 
 use crate::message::User;
 use worker::*;
