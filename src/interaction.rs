@@ -197,15 +197,15 @@ impl Interaction {
 
     async fn handle_entry(
         &self,
-        data: &ApplicationCommandData,
-        client: &mut DiscordAPIClient,
-        kv: KvStore,
-        user_id: String,
-        channel_id: String,
-        mut users: Vec<message::User>,
+        _data: &ApplicationCommandData,
+        _client: &mut DiscordAPIClient,
+        _kv: KvStore,
+        _user_id: String,
+        _channel_id: String,
+        mut _users: Vec<message::User>,
     ) -> InteractionResponse {
         console_log!("Handling entry");
-        InteractionResponse::success()
+        InteractionResponse::unimplemented()
     }
 
     fn handle_component(&self) -> InteractionResponse {
@@ -379,6 +379,13 @@ impl InteractionResponse {
         }
     }
 
+    fn unimplemented() -> InteractionResponse {
+        InteractionResponse {
+            r#type: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(InteractionResponseData::Message(Message::unimplemented())),
+        }
+    }
+
     fn error() -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
@@ -471,6 +478,17 @@ impl Message {
         Message {
             content: Some(
                 "It looks like that worked! If it didn't do what you expected, contact Fitti#6969"
+                    .into(),
+            ),
+            flags: Some(1 << 6),
+            ..Default::default()
+        }
+    }
+
+    pub fn unimplemented() -> Self {
+        Message {
+            content: Some(
+                "This command is not yet implemented! I'm working on it, and it will be here very soon!"
                     .into(),
             ),
             flags: Some(1 << 6),

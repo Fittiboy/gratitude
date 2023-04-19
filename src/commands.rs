@@ -4,6 +4,7 @@ use worker::{console_debug, console_error, console_log};
 use crate::interaction::{CommandName, CommandType, OptionType};
 use crate::DiscordAPIClient;
 
+#[allow(dead_code)]
 impl ApplicationCommand {
     pub async fn get_id(&self, client: &mut DiscordAPIClient) -> Option<String> {
         let response = match client
