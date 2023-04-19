@@ -13,6 +13,7 @@ impl Interaction {
     ) -> Result<InteractionResponse, Error> {
         match self.r#type {
             InteractionType::Ping => Ok(self.handle_ping()),
+            InteractionType::ApplicationCommand => Ok(self.handle_command()),
             InteractionType::MessageComponent => Ok(self.handle_component()),
             InteractionType::ModalSubmit => Ok(self.handle_modal(&ctx.env).await),
         }
@@ -21,6 +22,13 @@ impl Interaction {
     fn handle_ping(&self) -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::Pong,
+            data: None,
+        }
+    }
+
+    fn handle_command(&self) -> InteractionResponse {
+        InteractionResponse {
+            r#type: InteractionResponseType::ChannelMessageWithSource,
             data: None,
         }
     }
