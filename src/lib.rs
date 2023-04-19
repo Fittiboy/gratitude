@@ -115,6 +115,11 @@ impl DiscordAPIClient {
         self.client.get(&url)
     }
 
+    pub fn delete(&mut self, url: &str) -> RequestBuilder {
+        let url = format!("https://discord.com/api/{}", url);
+        self.client.delete(&url)
+    }
+
     fn headers(token: String) -> header::HeaderMap {
         let mut headers = header::HeaderMap::new();
         let auth_value = header::HeaderValue::from_str(&token).unwrap();

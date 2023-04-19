@@ -105,11 +105,21 @@ pub struct TextInputSubmit {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ApplicationCommandData {
     pub id: String,
-    pub name: String,
+    pub name: CommandName,
     pub r#type: CommandType,
     pub options: Option<Vec<OptionData>>,
     pub guild_id: Option<String>,
     pub target_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
+pub enum CommandName {
+    #[serde(rename = "start")]
+    Start,
+    #[serde(rename = "stop")]
+    Stop,
+    #[serde(rename = "entry")]
+    Entry,
 }
 
 #[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]

@@ -26,7 +26,7 @@ impl Interaction {
         }
     }
 
-    fn handle_command(&self) -> InteractionResponse {
+    pub fn handle_command(&self) -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
             data: None,
