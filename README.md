@@ -13,5 +13,4 @@ And that's it! New features will be added in the future, and I'm happy to receiv
 I would be grateful for any bugs you [report](https://github.com/Fittiboy/gratitude/issues/new?assignees=&labels=&template=bug_report.md&title=Bug+report%21) as well!
 
 ### Self-hosting
-Gratitude bot can hopefully run on the [free plan](https://developers.cloudflare.com/workers/platform/pricing/), so self-hosting incurs no cost past time spent setting up
-More information will be available here once the bot has become usable.
+The bot requires [Durable Objects](https://developers.cloudflare.com/workers/runtime-apis/durable-objects/) for consistent storage of registered users. This means that a paid tier for Cloudflare Workers is required. These start [at $5 per month](https://developers.cloudflare.com/workers/platform/pricing/).
