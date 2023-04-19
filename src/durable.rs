@@ -6,14 +6,13 @@ use worker::*;
 
 #[durable_object]
 pub struct Userlist {
-    state: State,
     env: Env,
 }
 
 #[durable_object]
 impl DurableObject for Userlist {
     fn new(state: State, env: Env) -> Self {
-        Self { state, env }
+        Self { env }
     }
 
     async fn fetch(&mut self, mut req: Request) -> Result<Response> {

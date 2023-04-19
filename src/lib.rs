@@ -85,16 +85,22 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     // .register(&mut client)
     // .await;
 
-    let users_kv = env
-        .kv("grateful_users")
-        .expect("Worker should have access to grateful_users binding");
-    //TODO: Get users from durable object
     let entries_kv = env
         .kv("thankful")
         .expect("Worker should have access to thankful binding");
 
     let mut rng = rand::thread_rng();
-    let users = message::registered_users(&users_kv).await;
+    let userlist = env
+        .durable_object("USERS")
+        .unwrap()
+        .id_from_name("production")
+        .unwrap()
+        .get_stub()
+        .unwrap();
+    let request_init = RequestInit::new();
+    let request = Request::new_with_init("", &request_init).unwrap();
+    let mut response = userlist.fetch_with_request(request).await.unwrap();
+    let users = response.json::<Vec<message::User>>().await.unwrap();
     let users = users.iter().filter(|_| rng.gen_range(1..=24) == 1);
 
     for user in users {

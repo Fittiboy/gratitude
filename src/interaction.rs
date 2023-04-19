@@ -1,4 +1,4 @@
-use worker::{console_error, console_log, Env, Stub};
+use worker::{console_error, console_log, kv::KvStore, Env, Method, Request, RequestInit, Stub};
 
 use crate::error::Error;
 use crate::{discord_token, message, DiscordAPIClient};
@@ -87,32 +87,19 @@ impl Interaction {
                 }
             }
         };
-        // TODO: Continue here
-        // userlist.fetch_with_request("/add").await.unwrap();
-        let users = match kv.get("users").json::<Vec<message::User>>().await {
-            Ok(Some(users)) => users,
-            Ok(None) => {
-                console_error!("User list unexpectedly empty!");
-                return InteractionResponse::error();
-            }
-            Err(err) => {
-                console_error!("Couldn't get list of users: {}", err);
-                return InteractionResponse::error();
-            }
-        };
 
         match self.data.as_ref().expect("only pings have no data") {
             InteractionData::ApplicationCommandData(data) => match data.name {
                 CommandName::Start => {
-                    self.handle_start(data, client, kv, user_id, channel_id, users)
+                    self.handle_start(data, client, userlist, user_id, channel_id)
                         .await
                 }
                 CommandName::Stop => {
-                    self.handle_stop(data, client, kv, user_id, channel_id, users)
+                    self.handle_stop(data, client, userlist, user_id, channel_id)
                         .await
                 }
                 CommandName::Entry => {
-                    self.handle_entry(data, client, kv, user_id, channel_id, users)
+                    self.handle_entry(data, client, userlist, user_id, channel_id)
                         .await
                 }
             },
@@ -124,90 +111,99 @@ impl Interaction {
         &self,
         data: &ApplicationCommandData,
         client: &mut DiscordAPIClient,
-        kv: KvStore,
+        userlist: Stub,
         user_id: String,
         channel_id: String,
-        mut users: Vec<message::User>,
     ) -> InteractionResponse {
         console_log!("Handling start!");
-        if users.iter().find(|user| user.uid == user_id).is_some() {
-            return InteractionResponse::already_active();
-        } else {
-            users.push(message::User {
+        let mut request_init = RequestInit::new();
+        let request_init = request_init.with_method(Method::Post).with_body(Some(
+            serde_json::to_string(&message::User {
                 uid: user_id.clone(),
                 channel_id: channel_id.clone(),
-            });
-            if let Err(err) = kv.put("users", users).unwrap().execute().await {
-                console_error!("Couldn't add user to list: {}", err);
+            })
+            .unwrap()
+            .into(),
+        ));
+        let request = Request::new_with_init("", &request_init).unwrap();
+        let response = userlist.fetch_with_request(request).await.unwrap();
+        match response.status_code() {
+            200 => {
+                let payload = Message::welcome();
+                let client = client
+                    .post(&format!("channels/{}/messages", channel_id))
+                    .json(&payload);
+                if let Err(error) = client.send().await.unwrap().error_for_status() {
+                    console_error!("Error sending message to user {}: {}", user_id, error);
+                    return InteractionResponse::dms_closed();
+                }
+                console_log!("New user: {:?}", data.target_id);
+
+                InteractionResponse::success()
+            }
+            409 => {
+                console_log!("User already active: {}", user_id);
+                return InteractionResponse::already_active();
+            }
+            _ => {
+                console_error!("Couldn't add user to list {:#?}", response);
                 return InteractionResponse::error();
             }
         }
-
-        let payload = Message::welcome();
-        let client = client
-            .post(&format!("channels/{}/messages", channel_id))
-            .json(&payload);
-        if let Err(error) = client.send().await.unwrap().error_for_status() {
-            console_error!("Error sending message to user {}: {}", user_id, error);
-            return InteractionResponse::dms_closed();
-        }
-        console_log!("New user: {:?}", data.target_id);
-
-        InteractionResponse::success()
     }
 
     async fn handle_stop(
         &self,
         data: &ApplicationCommandData,
         client: &mut DiscordAPIClient,
-        kv: KvStore,
+        userlist: Stub,
         user_id: String,
         channel_id: String,
-        mut users: Vec<message::User>,
     ) -> InteractionResponse {
         console_log!("Handling stop!");
-        if users.iter().find(|user| user.uid == user_id).is_none() {
-            return InteractionResponse::not_active();
-        } else {
-            let original_length = users.len();
-            users.retain(|user| user.uid != user_id);
-            let length_after = users.len();
-            if !(original_length - 1 == length_after) {
-                console_error!(
-                    "Length after removing not one less. Old: {}, New: {}",
-                    original_length,
-                    length_after
-                );
-                return InteractionResponse::error();
-            } else {
-                if let Err(err) = kv.put("users", users).unwrap().execute().await {
-                    console_error!("Couldn't remove user from list: {}", err);
-                    return InteractionResponse::error();
+        let mut request_init = RequestInit::new();
+        let request_init = request_init.with_method(Method::Delete).with_body(Some(
+            serde_json::to_string(&message::User {
+                uid: user_id.clone(),
+                channel_id: channel_id.clone(),
+            })
+            .unwrap()
+            .into(),
+        ));
+        let request = Request::new_with_init("", &request_init).unwrap();
+        let response = userlist.fetch_with_request(request).await.unwrap();
+        match response.status_code() {
+            200 => {
+                let payload = Message::goodbye();
+                let client = client
+                    .post(&format!("channels/{}/messages", channel_id))
+                    .json(&payload);
+                if let Err(error) = client.send().await.unwrap().error_for_status() {
+                    console_error!("Error sending message to user {}: {}", user_id, error);
+                    return InteractionResponse::dms_closed();
                 }
+                console_log!("User removed: {:?}", data.target_id);
+
+                InteractionResponse::success()
+            }
+            409 => {
+                console_log!("User not active: {}", user_id);
+                return InteractionResponse::not_active();
+            }
+            _ => {
+                console_error!("Couldn't remove user from list {:#?}", response);
+                return InteractionResponse::error();
             }
         }
-
-        let payload = Message::goodbye();
-        let client = client
-            .post(&format!("channels/{}/messages", channel_id))
-            .json(&payload);
-        if let Err(error) = client.send().await.unwrap().error_for_status() {
-            console_error!("Error sending message to user {}: {}", user_id, error);
-            return InteractionResponse::dms_closed();
-        }
-        console_log!("User removed: {:?}", data.target_id);
-
-        InteractionResponse::success()
     }
 
     async fn handle_entry(
         &self,
         _data: &ApplicationCommandData,
         _client: &mut DiscordAPIClient,
-        _kv: KvStore,
+        _userlist: Stub,
         _user_id: String,
         _channel_id: String,
-        mut _users: Vec<message::User>,
     ) -> InteractionResponse {
         console_log!("Handling entry");
         InteractionResponse::unimplemented()
