@@ -204,6 +204,7 @@ impl Interaction {
         channel_id: String,
         mut users: Vec<message::User>,
     ) -> InteractionResponse {
+        console_log!("Handling entry");
         InteractionResponse::success()
     }
 
@@ -447,7 +448,6 @@ impl Message {
         let content = Some("You will no longer receive reminders! See you around! 😊".into());
         Message {
             content,
-            components: Some(vec![ActionRow::with_entry_button()]),
             ..Default::default()
         }
     }
@@ -470,7 +470,7 @@ impl Message {
     pub fn success() -> Self {
         Message {
             content: Some(
-                "It lookes like that worked! If it didn't do what you expected, contact Fitti#6969"
+                "It looks like that worked! If it didn't do what you expected, contact Fitti#6969"
                     .into(),
             ),
             flags: Some(1 << 6),
