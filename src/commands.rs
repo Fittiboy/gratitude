@@ -1,25 +1,10 @@
 use serde::{Deserialize, Serialize};
 use worker::{console_debug, console_error, console_log};
 
-use crate::interaction::{
-    CommandName, CommandType, Interaction, InteractionData, InteractionResponse, OptionType,
-};
+use crate::interaction::{CommandName, CommandType, OptionType};
 use crate::DiscordAPIClient;
 
 impl ApplicationCommand {
-    pub async fn handle(&self, interaction: Interaction) -> InteractionResponse {
-        match interaction.data.as_ref().expect("Only pings have no data") {
-            InteractionData::ApplicationCommandData(data) => match data.name {
-                CommandName::Start => interaction.handle_command(),
-                CommandName::Stop => interaction.handle_command(),
-                CommandName::Entry => interaction.handle_command(),
-                //TODO: remove this, just here for deleting /hello
-                _ => unreachable!(),
-            },
-            _ => unreachable!("Type of data is known at this point"),
-        }
-    }
-
     pub async fn get_id(&self, client: &mut DiscordAPIClient) -> Option<String> {
         let response = match client
             .get(&format!("applications/{}/commands", self.application_id))
