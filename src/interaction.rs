@@ -1,4 +1,4 @@
-use worker::{console_error, console_log, kv::KvStore, Env};
+use worker::{console_error, console_log, Env, Stub};
 
 use crate::error::Error;
 use crate::{discord_token, message, DiscordAPIClient};
@@ -15,11 +15,14 @@ impl Interaction {
             InteractionType::Ping => Ok(self.handle_ping()),
             InteractionType::ApplicationCommand => {
                 let mut client = DiscordAPIClient::new(discord_token(&ctx.env).unwrap());
-                let users_kv = ctx
-                    .env
-                    .kv("grateful_users")
-                    .expect("Worker should have access to grateful_users binding");
-                Ok(self.handle_command(&mut client, users_kv).await)
+                let userlist = ctx
+                    .durable_object("USERS")
+                    .unwrap()
+                    .id_from_name("production")
+                    .unwrap()
+                    .get_stub()
+                    .unwrap();
+                Ok(self.handle_command(&mut client, userlist).await)
             }
             InteractionType::MessageComponent => Ok(self.handle_component()),
             InteractionType::ModalSubmit => Ok(self.handle_modal(&ctx.env).await),
@@ -36,7 +39,7 @@ impl Interaction {
     pub async fn handle_command(
         &self,
         client: &mut DiscordAPIClient,
-        kv: KvStore,
+        userlist: Stub,
     ) -> InteractionResponse {
         let (user_id, mut channel_id) = match self.user.as_ref() {
             Some(User { id, .. }) => {
@@ -84,6 +87,8 @@ impl Interaction {
                 }
             }
         };
+        // TODO: Continue here
+        // userlist.fetch_with_request("/add").await.unwrap();
         let users = match kv.get("users").json::<Vec<message::User>>().await {
             Ok(Some(users)) => users,
             Ok(None) => {

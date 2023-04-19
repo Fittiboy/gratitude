@@ -88,6 +88,7 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     let users_kv = env
         .kv("grateful_users")
         .expect("Worker should have access to grateful_users binding");
+    //TODO: Get users from durable object
     let entries_kv = env
         .kv("thankful")
         .expect("Worker should have access to thankful binding");
