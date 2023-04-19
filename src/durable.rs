@@ -41,7 +41,36 @@ impl DurableObject for Userlist {
                 }
                 Response::ok("".to_string())
             }
-            Method::Delete => Response::ok("".to_string()),
+            Method::Delete => {
+                let user = block_on(req.json::<User>())
+                    .expect("Should always be passed a User from the worker");
+                if users
+                    .iter()
+                    .find(|local_user| user.uid == local_user.uid)
+                    .is_none()
+                {
+                    return Response::error("User not registered", 409);
+                } else {
+                    let original_length = users.len();
+                    users.retain(|local_user| user.uid != local_user.uid);
+                    let length_after = users.len();
+                    if !(original_length - 1 == length_after) {
+                        return Response::error(
+                            format!(
+                                "Length after removing not one less. Old: {}, New: {}",
+                                original_length, length_after
+                            ),
+                            500,
+                        );
+                    } else {
+                        if let Err(err) = block_on(kv.put("users", users).unwrap().execute()) {
+                            console_error!("Couldn't remove user from list: {}", err);
+                            return Response::error("Something went wrong", 500);
+                        }
+                    }
+                }
+                Response::ok("".to_string())
+            }
             _ => unimplemented!("Other request methods are not needed"),
         }
     }
