@@ -4,6 +4,7 @@ use worker::*;
 
 mod bot;
 mod commands;
+mod durable;
 mod embed;
 mod error;
 mod http;
@@ -11,6 +12,8 @@ mod interaction;
 mod message;
 mod utils;
 mod verification;
+
+use durable::Userlist;
 
 fn log_request(req: &Request) {
     console_log!(
