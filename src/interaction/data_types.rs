@@ -11,6 +11,7 @@ pub struct Interaction {
     pub guild_id: Option<String>,
     pub channel_id: Option<String>,
     pub message: Option<Message>,
+    pub member: Option<Member>,
     pub user: Option<User>,
 }
 
@@ -162,6 +163,22 @@ pub enum OptionValue {
     Integer(u32),
     Float(f64),
     Bool(bool),
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Member {
+    pub user: Option<User>,
+    pub nick: Option<String>,
+    pub avatar: Option<String>,
+    pub roles: Vec<String>,
+    pub joined_at: String,
+    pub premium: Option<String>,
+    pub deaf: bool,
+    pub mute: bool,
+    pub flags: u8,
+    pub pending: Option<bool>,
+    pub permissions: Option<String>,
+    pub communication_disabled_until: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

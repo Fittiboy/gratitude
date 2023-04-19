@@ -54,7 +54,19 @@ impl Interaction {
         client: &mut DiscordAPIClient,
         kv: KvStore,
     ) -> InteractionResponse {
-        let user_id = self.user.as_ref().unwrap().id.clone();
+        console_log!("Handling start!");
+        let user_id = match self.user.as_ref().unwrap().id.clone() {
+            string if string.is_empty() => self
+                .member
+                .as_ref()
+                .unwrap()
+                .user
+                .as_ref()
+                .unwrap()
+                .id
+                .clone(),
+            string => string,
+        };
         let mut channel_payload = std::collections::HashMap::new();
         channel_payload.insert("recipient_id", user_id.clone());
         let response = client
