@@ -223,6 +223,21 @@ impl Interaction {
         mut _users: Vec<message::User>,
     ) -> InteractionResponse {
         console_log!("Handling entry");
+        // let entry = self.entry();
+        // self.add_entry(env, &entry).await;
+        // let token = discord_token(env).unwrap();
+        // self.disable_button(token).await;
+
+        // InteractionResponse {
+        //     r#type: InteractionResponseType::ChannelMessageWithSource,
+        //     data: Some(InteractionResponseData::Message(Message {
+        //         id: None,
+        //         channel_id: None,
+        //         content: Some(format!("**You added the following entry:**\n{}", entry)),
+        //         flags: None,
+        //         components: Some(vec![]),
+        //     })),
+        // }
         InteractionResponse::unimplemented()
     }
 

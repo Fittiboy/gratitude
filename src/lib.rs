@@ -55,8 +55,8 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     let token = discord_token(&env).unwrap();
     let mut client = DiscordAPIClient::new(token);
 
-    // use crate::commands::ApplicationCommand;
-    // use crate::interaction::data_types::CommandName;
+    // use crate::commands::{ApplicationCommand, ApplicationCommandOption};
+    // use crate::interaction::data_types::{CommandName, OptionType};
     // let application_id = discord_application_id(&env).unwrap();
     // ApplicationCommand {
     //     application_id: application_id.clone(),
@@ -78,6 +78,14 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     // ApplicationCommand {
     //     name: CommandName::Entry,
     //     description: "Add an entry to your gratitude journal!".into(),
+    //     options: Some(vec![ApplicationCommandOption {
+    //         r#type: OptionType::String,
+    //         name: "entry".into(),
+    //         description: "Something, anything, you are feeling grateful for!".into(),
+    //         required: Some(true),
+    //         min_length: Some(5),
+    //         max_length: Some(1000),
+    //     }]),
     //     application_id,
     //     dm_permission: Some(true),
     //     ..Default::default()
