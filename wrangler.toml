@@ -30,3 +30,7 @@ bindings = [
 [[migrations]]
 tag = "v1"
 new_classes = ["Userlist"]
+
+[[migrations]]
+tab = "v2"
+deleted_classes = ["Userlist"]
