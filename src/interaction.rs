@@ -122,17 +122,20 @@ impl Interaction {
         kv: KvStore,
         user_id: String,
         channel_id: String,
-        mut users: Vec<message::User>,
+        users: Vec<message::User>,
     ) -> InteractionResponse {
         console_log!("Handling start!");
-        if users.iter().find(|user| user.uid == user_id).is_some() {
+        let user = message::User {
+            uid: user_id.clone(),
+            channel_id: channel_id.clone(),
+        };
+        let key = format!("ADD {}", serde_json::to_string(&user).unwrap());
+        if users.iter().find(|user| user.uid == user_id).is_some()
+            || kv.get(&key).text().await.unwrap().is_some()
+        {
             return InteractionResponse::already_active();
         } else {
-            users.push(message::User {
-                uid: user_id.clone(),
-                channel_id: channel_id.clone(),
-            });
-            if let Err(err) = kv.put("users", users).unwrap().execute().await {
+            if let Err(err) = kv.put(&key, "FOOP").unwrap().execute().await {
                 console_error!("Couldn't add user to list: {}", err);
                 return InteractionResponse::error();
             }
@@ -161,7 +164,10 @@ impl Interaction {
         mut users: Vec<message::User>,
     ) -> InteractionResponse {
         console_log!("Handling stop!");
-        if users.iter().find(|user| user.uid == user_id).is_none() {
+        let key = format!("DELETE {}", user_id);
+        if users.iter().find(|user| user.uid == user_id).is_none()
+            || kv.get(&key).text().await.unwrap().is_some()
+        {
             return InteractionResponse::not_active();
         } else {
             let original_length = users.len();
@@ -175,7 +181,7 @@ impl Interaction {
                 );
                 return InteractionResponse::error();
             } else {
-                if let Err(err) = kv.put("users", users).unwrap().execute().await {
+                if let Err(err) = kv.put(&key, "POOF").unwrap().execute().await {
                     console_error!("Couldn't remove user from list: {}", err);
                     return InteractionResponse::error();
                 }

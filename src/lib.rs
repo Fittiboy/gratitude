@@ -89,6 +89,52 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
         .kv("thankful")
         .expect("Worker should have access to thankful binding");
 
+    let mut users = message::registered_users(&users_kv).await;
+    let mut done = false;
+    while !done {
+        let mut to_delete = Vec::new();
+        let mut to_add = Vec::new();
+
+        let todo = users_kv.list().execute().await.unwrap();
+        done = todo.list_complete;
+
+        let mut keys = todo.keys;
+        keys.retain(|key| key.name != "users");
+        for key in keys.as_slice() {
+            match key.name {
+                ref name if name.starts_with("DELETE") => {
+                    let uid = name.as_str().split_once(" ").unwrap().1;
+                    to_delete.push(uid.to_owned());
+                }
+                ref name if name.starts_with("ADD") => {
+                    let user = name.as_str().split_once(" ").unwrap().1;
+                    to_add.push(user.to_owned());
+                }
+                ref name => {
+                    console_error!("No other keys should be present, found {}!", name);
+                    unreachable!();
+                }
+            }
+        }
+        for user in to_add.as_slice() {
+            users.push(serde_json::from_str::<message::User>(user).unwrap());
+        }
+        users.retain(|user| !to_delete.contains(&user.uid));
+        for key in keys {
+            match users_kv.delete(&key.name).await {
+                Ok(_) => console_log!("Removed key: {}", &key.name),
+                Err(err) => console_error!("Couldn't remove user {}: {}", &key.name, err),
+            };
+        }
+        match users_kv.put("users", &users) {
+            Ok(task) => match task.execute().await {
+                Ok(_) => console_log!("Updated users!"),
+                Err(err) => console_error!("Couldn't update users {}", err),
+            },
+            Err(err) => console_error!("Couldn't update users: {}", err),
+        }
+    }
+
     let mut rng = rand::thread_rng();
     let users = message::registered_users(&users_kv).await;
     let users = users.iter().filter(|_| rng.gen_range(1..=24) == 1);
