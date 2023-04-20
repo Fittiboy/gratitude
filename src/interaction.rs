@@ -105,22 +105,16 @@ impl Interaction {
         match self.data.as_ref().expect("only pings have no data") {
             InteractionData::ApplicationCommandData(data) => match data.name {
                 CommandName::Start => {
-                    self.handle_start(
-                        data, client, kv, user_id, channel_id, add_key, delete_key, users,
-                    )
-                    .await
+                    self.handle_start(client, kv, user_id, channel_id, add_key, delete_key, users)
+                        .await
                 }
                 CommandName::Stop => {
-                    self.handle_stop(
-                        data, client, kv, user_id, channel_id, add_key, delete_key, users,
-                    )
-                    .await
+                    self.handle_stop(client, kv, user_id, channel_id, add_key, delete_key, users)
+                        .await
                 }
                 CommandName::Entry => {
-                    self.handle_entry(
-                        data, client, kv, user_id, channel_id, add_key, delete_key, users,
-                    )
-                    .await
+                    self.handle_entry(client, kv, user_id, channel_id, add_key, delete_key, users)
+                        .await
                 }
             },
             _ => unreachable!("Commands are always commands (shocking, I know!)"),
@@ -129,7 +123,6 @@ impl Interaction {
 
     async fn handle_start(
         &self,
-        data: &ApplicationCommandData,
         client: &mut DiscordAPIClient,
         kv: KvStore,
         user_id: String,
@@ -144,8 +137,7 @@ impl Interaction {
                 console_error!("Couldn't remove delete key from kv: {}", err);
                 return InteractionResponse::error();
             }
-        }
-        if users.iter().find(|user| user.uid == user_id).is_some()
+        } else if users.iter().find(|user| user.uid == user_id).is_some()
             || kv.get(&add_key).text().await.unwrap().is_some()
         {
             return InteractionResponse::already_active();
@@ -164,14 +156,13 @@ impl Interaction {
             console_error!("Error sending message to user {}: {}", user_id, error);
             return InteractionResponse::dms_closed();
         }
-        console_log!("New user: {:?}", data.target_id);
+        console_log!("New user: {:?}", user_id);
 
         InteractionResponse::success()
     }
 
     async fn handle_stop(
         &self,
-        data: &ApplicationCommandData,
         client: &mut DiscordAPIClient,
         kv: KvStore,
         user_id: String,
@@ -186,8 +177,7 @@ impl Interaction {
                 console_error!("Couldn't remove delete key from kv: {}", err);
                 return InteractionResponse::error();
             }
-        }
-        if users.iter().find(|user| user.uid == user_id).is_none()
+        } else if users.iter().find(|user| user.uid == user_id).is_none()
             || kv.get(&delete_key).text().await.unwrap().is_some()
         {
             return InteractionResponse::not_active();
@@ -218,14 +208,13 @@ impl Interaction {
             console_error!("Error sending message to user {}: {}", user_id, error);
             return InteractionResponse::dms_closed();
         }
-        console_log!("User removed: {:?}", data.target_id);
+        console_log!("User removed: {:?}", user_id);
 
         InteractionResponse::success()
     }
 
     async fn handle_entry(
         &self,
-        _data: &ApplicationCommandData,
         _client: &mut DiscordAPIClient,
         _kv: KvStore,
         _user_id: String,
