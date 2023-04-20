@@ -142,22 +142,21 @@ impl Interaction {
         {
             return InteractionResponse::already_active();
         } else {
+            let payload = Message::welcome();
+            let client = client
+                .post(&format!("channels/{}/messages", channel_id))
+                .json(&payload);
+            if let Err(error) = client.send().await.unwrap().error_for_status() {
+                console_error!("Error sending message to user {}: {}", user_id, error);
+                return InteractionResponse::dms_closed();
+            }
+            console_log!("New user: {:?}", user_id);
+
             if let Err(err) = kv.put(&add_key, "FOOP").unwrap().execute().await {
                 console_error!("Couldn't add user to list: {}", err);
                 return InteractionResponse::error();
             }
         }
-
-        let payload = Message::welcome();
-        let client = client
-            .post(&format!("channels/{}/messages", channel_id))
-            .json(&payload);
-        if let Err(error) = client.send().await.unwrap().error_for_status() {
-            console_error!("Error sending message to user {}: {}", user_id, error);
-            return InteractionResponse::dms_closed();
-        }
-        console_log!("New user: {:?}", user_id);
-
         InteractionResponse::success()
     }
 
