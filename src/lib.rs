@@ -128,7 +128,7 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
             }
         }
         for user in to_add.as_slice() {
-            users.push(serde_json::from_str::<message::User>(user).unwrap());
+            users.push(serde_json::from_str::<message::BotUser>(user).unwrap());
         }
         users.retain(|user| !to_delete.contains(&user.uid));
         for key in keys {

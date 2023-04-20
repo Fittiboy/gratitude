@@ -6,12 +6,12 @@ use worker::kv::KvStore;
 use worker::*;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct User {
+pub struct BotUser {
     pub uid: String,
     pub channel_id: String,
 }
 
-impl User {
+impl BotUser {
     pub async fn prompt(&self, kv: &KvStore, client: &mut DiscordAPIClient) {
         let entry = self.random_entry(kv).await;
         let payload = Message::from_entry(entry);
@@ -37,15 +37,10 @@ impl User {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct Journal {
-    entries: Vec<String>,
-}
-
-pub async fn registered_users(users_kv: &KvStore) -> Vec<User> {
+pub async fn registered_users(users_kv: &KvStore) -> Vec<BotUser> {
     users_kv
         .get("users")
-        .json::<Vec<User>>()
+        .json::<Vec<BotUser>>()
         .await
         .unwrap_or_else(|err| {
             console_error!("Couldn't parse string into vector of users: {}!", err);

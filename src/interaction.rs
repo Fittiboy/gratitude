@@ -1,7 +1,7 @@
 use worker::{console_error, console_log, kv::KvStore, Env};
 
 use crate::error::Error;
-use crate::{discord_token, message, DiscordAPIClient};
+use crate::{discord_token, message::BotUser, DiscordAPIClient};
 
 pub mod data_types;
 pub use data_types::*;
@@ -91,7 +91,7 @@ impl Interaction {
                 }
             }
         };
-        let users = match users_kv.get("users").json::<Vec<message::User>>().await {
+        let users = match users_kv.get("users").json::<Vec<BotUser>>().await {
             Ok(Some(users)) => users,
             Ok(None) => {
                 console_error!("User list unexpectedly empty!");
@@ -102,7 +102,7 @@ impl Interaction {
                 return InteractionResponse::error();
             }
         };
-        let user = message::User {
+        let user = BotUser {
             uid: user_id.clone(),
             channel_id: channel_id.clone(),
         };
@@ -140,7 +140,7 @@ impl Interaction {
         channel_id: String,
         add_key: String,
         delete_key: String,
-        users: Vec<message::User>,
+        users: Vec<BotUser>,
     ) -> InteractionResponse {
         console_log!("Handling start!");
         if kv.get(&delete_key).text().await.unwrap().is_some() {
@@ -177,7 +177,7 @@ impl Interaction {
         channel_id: String,
         add_key: String,
         delete_key: String,
-        mut users: Vec<message::User>,
+        mut users: Vec<BotUser>,
     ) -> InteractionResponse {
         console_log!("Handling stop!");
         if kv.get(&add_key).text().await.unwrap().is_some() {
