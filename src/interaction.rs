@@ -11,6 +11,10 @@ impl Interaction {
         &self,
         ctx: &mut worker::RouteContext<()>,
     ) -> Result<InteractionResponse, Error> {
+        let thankful_kv = ctx
+            .env
+            .kv("thankful")
+            .expect("Worker should have access to thankful binding");
         match self.r#type {
             InteractionType::Ping => Ok(self.handle_ping()),
             InteractionType::ApplicationCommand => {
@@ -19,10 +23,12 @@ impl Interaction {
                     .env
                     .kv("grateful_users")
                     .expect("Worker should have access to grateful_users binding");
-                Ok(self.handle_command(&mut client, users_kv).await)
+                Ok(self
+                    .handle_command(&mut client, users_kv, thankful_kv)
+                    .await)
             }
             InteractionType::MessageComponent => Ok(self.handle_component()),
-            InteractionType::ModalSubmit => Ok(self.handle_modal(&ctx.env).await),
+            InteractionType::ModalSubmit => Ok(self.handle_modal(&ctx.env, thankful_kv).await),
         }
     }
 
@@ -36,7 +42,8 @@ impl Interaction {
     pub async fn handle_command(
         &self,
         client: &mut DiscordAPIClient,
-        kv: KvStore,
+        users_kv: KvStore,
+        thankful_kv: KvStore,
     ) -> InteractionResponse {
         let (user_id, mut channel_id) = match self.user.as_ref() {
             Some(User { id, .. }) => {
@@ -84,7 +91,7 @@ impl Interaction {
                 }
             }
         };
-        let users = match kv.get("users").json::<Vec<message::User>>().await {
+        let users = match users_kv.get("users").json::<Vec<message::User>>().await {
             Ok(Some(users)) => users,
             Ok(None) => {
                 console_error!("User list unexpectedly empty!");
@@ -105,17 +112,18 @@ impl Interaction {
         match self.data.as_ref().expect("only pings have no data") {
             InteractionData::ApplicationCommandData(data) => match data.name {
                 CommandName::Start => {
-                    self.handle_start(client, kv, user_id, channel_id, add_key, delete_key, users)
-                        .await
+                    self.handle_start(
+                        client, users_kv, user_id, channel_id, add_key, delete_key, users,
+                    )
+                    .await
                 }
                 CommandName::Stop => {
-                    self.handle_stop(client, kv, user_id, channel_id, add_key, delete_key, users)
-                        .await
+                    self.handle_stop(
+                        client, users_kv, user_id, channel_id, add_key, delete_key, users,
+                    )
+                    .await
                 }
-                CommandName::Entry => {
-                    self.handle_entry(client, kv, user_id, channel_id, add_key, delete_key, users)
-                        .await
-                }
+                CommandName::Entry => self.handle_entry(thankful_kv).await,
             },
             _ => unreachable!("Commands are always commands (shocking, I know!)"),
         }
@@ -212,33 +220,21 @@ impl Interaction {
         InteractionResponse::success()
     }
 
-    async fn handle_entry(
-        &self,
-        _client: &mut DiscordAPIClient,
-        _kv: KvStore,
-        _user_id: String,
-        _channel_id: String,
-        _add_key: String,
-        _delete_key: String,
-        mut _users: Vec<message::User>,
-    ) -> InteractionResponse {
+    async fn handle_entry(&self, thankful_kv: KvStore) -> InteractionResponse {
         console_log!("Handling entry");
-        // let entry = self.entry();
-        // self.add_entry(env, &entry).await;
-        // let token = discord_token(env).unwrap();
-        // self.disable_button(token).await;
+        let entry = self.entry();
+        self.add_entry(thankful_kv, &entry).await;
 
-        // InteractionResponse {
-        //     r#type: InteractionResponseType::ChannelMessageWithSource,
-        //     data: Some(InteractionResponseData::Message(Message {
-        //         id: None,
-        //         channel_id: None,
-        //         content: Some(format!("**You added the following entry:**\n{}", entry)),
-        //         flags: None,
-        //         components: Some(vec![]),
-        //     })),
-        // }
-        InteractionResponse::unimplemented()
+        InteractionResponse {
+            r#type: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(InteractionResponseData::Message(Message {
+                id: None,
+                channel_id: None,
+                content: Some(format!("**You added the following entry:**\n{}", entry)),
+                flags: None,
+                components: Some(vec![]),
+            })),
+        }
     }
 
     fn handle_component(&self) -> InteractionResponse {
@@ -277,9 +273,9 @@ impl Interaction {
         }
     }
 
-    async fn handle_modal(&self, env: &Env) -> InteractionResponse {
+    async fn handle_modal(&self, env: &Env, thankful_kv: KvStore) -> InteractionResponse {
         let entry = self.entry();
-        self.add_entry(env, &entry).await;
+        self.add_entry(thankful_kv, &entry).await;
         let token = discord_token(env).unwrap();
         self.disable_button(token).await;
 
@@ -296,27 +292,38 @@ impl Interaction {
     }
 
     fn entry(&self) -> String {
-        let action_row = self.modal_action_row();
-        let action_row = action_row.components.iter().next().unwrap();
-        let Component::TextInputSubmit(TextInputSubmit { value, .. }) =
-            action_row.components.iter().next().unwrap() else {
-                unreachable!("Modals support only text inputs");
-            };
-        value.to_owned()
+        match self.r#type {
+            InteractionType::ModalSubmit => {
+                let action_row = self.modal_action_row();
+                let action_row = action_row.components.iter().next().unwrap();
+                let Component::TextInputSubmit(TextInputSubmit { value, .. }) =
+                    action_row.components.iter().next().unwrap() else {
+                        unreachable!("Modals support only text inputs");
+                    };
+                value.to_owned()
+            }
+            InteractionType::ApplicationCommand => match self.data.as_ref().unwrap() {
+                InteractionData::ApplicationCommandData(data) => {
+                    let OptionData { value, .. } = data.options.as_ref().unwrap().first().unwrap();
+                    let OptionValue::String(ref value) = value.as_ref().unwrap() else { unreachable!("Value guaranteed by Discord") };
+                    value.to_owned()
+                }
+                _ => unreachable!("We know it's a command now!"),
+            },
+            _ => unreachable!("No entries anywhere else!"),
+        }
     }
 
-    async fn add_entry(&self, env: &Env, entry: &str) {
+    async fn add_entry(&self, thankful_kv: KvStore, entry: &str) {
         let id = &self
             .user
             .clone()
             .expect("only users can interact with modals")
             .id;
-        let kv = env
-            .kv("thankful")
-            .expect("worker should have binding to thankful namespace");
-        let mut entries = self.get_entries(&kv, &id).await;
+        let mut entries = self.get_entries(&thankful_kv, &id).await;
         entries.push(entry.to_string());
-        kv.put(id, entries)
+        thankful_kv
+            .put(id, entries)
             .unwrap()
             .execute()
             .await
@@ -412,13 +419,6 @@ impl InteractionResponse {
         }
     }
 
-    fn unimplemented() -> InteractionResponse {
-        InteractionResponse {
-            r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(Message::unimplemented())),
-        }
-    }
-
     fn error() -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
@@ -511,17 +511,6 @@ impl Message {
         Message {
             content: Some(
                 "It looks like that worked! If it didn't do what you expected, contact Fitti#6969"
-                    .into(),
-            ),
-            flags: Some(1 << 6),
-            ..Default::default()
-        }
-    }
-
-    pub fn unimplemented() -> Self {
-        Message {
-            content: Some(
-                "This command is not yet implemented! I'm working on it, and it will be here very soon!"
                     .into(),
             ),
             flags: Some(1 << 6),
