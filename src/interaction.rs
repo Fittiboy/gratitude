@@ -123,7 +123,10 @@ impl Interaction {
                     )
                     .await
                 }
-                CommandName::Entry => self.handle_entry(thankful_kv).await,
+                CommandName::Entry => {
+                    self.handle_entry(client, channel_id, user_id, thankful_kv)
+                        .await
+                }
             },
             _ => unreachable!("Commands are always commands (shocking, I know!)"),
         }
@@ -220,21 +223,32 @@ impl Interaction {
         InteractionResponse::success()
     }
 
-    async fn handle_entry(&self, thankful_kv: KvStore) -> InteractionResponse {
+    async fn handle_entry(
+        &self,
+        client: &mut DiscordAPIClient,
+        channel_id: String,
+        user_id: String,
+        thankful_kv: KvStore,
+    ) -> InteractionResponse {
         console_log!("Handling entry");
         let entry = self.entry();
         self.add_entry(thankful_kv, &entry).await;
-
-        InteractionResponse {
-            r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(Message {
-                id: None,
-                channel_id: None,
-                content: Some(format!("**You added the following entry:**\n{}", entry)),
-                flags: None,
-                components: Some(vec![]),
-            })),
+        let payload = Message {
+            id: None,
+            channel_id: None,
+            content: Some(format!("**You added the following entry:**\n{}", entry)),
+            flags: None,
+            components: Some(vec![]),
+        };
+        let client = client
+            .post(&format!("channels/{}/messages", channel_id))
+            .json(&payload);
+        if let Err(error) = client.send().await.unwrap().error_for_status() {
+            console_error!("Error sending message to user {}: {}", user_id, error);
+            return InteractionResponse::dms_closed();
         }
+
+        InteractionResponse::success()
     }
 
     fn handle_component(&self) -> InteractionResponse {
