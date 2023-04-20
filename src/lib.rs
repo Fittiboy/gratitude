@@ -114,11 +114,11 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
         for key in keys.as_slice() {
             match key.name {
                 ref name if name.starts_with("DELETE") => {
-                    let uid = name.as_str().split_once(" ").unwrap().1;
+                    let uid = name.as_str().split_once(' ').unwrap().1;
                     to_delete.push(uid.to_owned());
                 }
                 ref name if name.starts_with("ADD") => {
-                    let user = name.as_str().split_once(" ").unwrap().1;
+                    let user = name.as_str().split_once(' ').unwrap().1;
                     to_add.push(user.to_owned());
                 }
                 ref name => {
@@ -161,7 +161,7 @@ pub struct DiscordAPIClient {
 
 impl DiscordAPIClient {
     pub fn new(token: String) -> Self {
-        let headers = Self::headers(token.clone());
+        let headers = Self::headers(token);
         let client = reqwest::Client::builder()
             .default_headers(headers)
             .build()
@@ -171,22 +171,22 @@ impl DiscordAPIClient {
 
     pub fn patch(&mut self, url: &str) -> RequestBuilder {
         let url = format!("https://discord.com/api/{}", url);
-        self.client.patch(&url)
+        self.client.patch(url)
     }
 
     pub fn post(&mut self, url: &str) -> RequestBuilder {
         let url = format!("https://discord.com/api/{}", url);
-        self.client.post(&url)
+        self.client.post(url)
     }
 
     pub fn get(&mut self, url: &str) -> RequestBuilder {
         let url = format!("https://discord.com/api/{}", url);
-        self.client.get(&url)
+        self.client.get(url)
     }
 
     pub fn delete(&mut self, url: &str) -> RequestBuilder {
         let url = format!("https://discord.com/api/{}", url);
-        self.client.delete(&url)
+        self.client.delete(url)
     }
 
     fn headers(token: String) -> header::HeaderMap {

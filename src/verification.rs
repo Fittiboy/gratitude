@@ -27,7 +27,7 @@ pub fn verify_signature(
 
     Ok(public_key.verify(
         format!("{}{}", timestamp, body).as_bytes(),
-        &hex::decode(&signature)
+        &hex::decode(signature)
             .map_err(VerificationError::ParseHexFailed)
             .and_then(|bytes| {
                 Signature::from_bytes(&bytes).map_err(VerificationError::InvalidSignature)
