@@ -342,7 +342,7 @@ impl Interaction {
             .expect("should be able to serialize entries");
     }
 
-    async fn get_entries(&self, kv: &KvStore, id: &String) -> Vec<String> {
+    async fn get_entries(&self, kv: &KvStore, id: &str) -> Vec<String> {
         match kv.get(id).text().await {
             Ok(Some(text)) => serde_json::from_str(&text).unwrap(),
             Ok(None) => Vec::new(),
@@ -390,15 +390,14 @@ impl Interaction {
 
     fn prepare_button_disable_payload(payload: &mut MessageEdit) {
         let components = &mut payload.components;
-        match components
+        if let Component::Button(Button { disabled, .. }) = components
             .first_mut()
             .unwrap()
             .components
             .first_mut()
             .unwrap()
         {
-            Component::Button(Button { disabled, .. }) => *disabled = Some(true),
-            _ => {}
+            *disabled = Some(true)
         }
     }
 
