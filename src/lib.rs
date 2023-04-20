@@ -61,6 +61,7 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     // ApplicationCommand {
     //     application_id: application_id.clone(),
     //     description: "Start receiving reminders from the bot!".into(),
+    //     dm_permission: Some(true),
     //     ..Default::default()
     // }
     // .register(&mut client)
@@ -69,6 +70,7 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     //     name: CommandName::Stop,
     //     application_id: application_id.clone(),
     //     description: "Stop receiving reminders from the bot!".into(),
+    //     dm_permission: Some(true),
     //     ..Default::default()
     // }
     // .register(&mut client)
@@ -77,6 +79,7 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     //     name: CommandName::Entry,
     //     description: "Add an entry to your gratitude journal!".into(),
     //     application_id,
+    //     dm_permission: Some(true),
     //     ..Default::default()
     // }
     // .register(&mut client)
