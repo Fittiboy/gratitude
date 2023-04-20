@@ -95,20 +95,32 @@ impl Interaction {
                 return InteractionResponse::error();
             }
         };
+        let user = message::User {
+            uid: user_id.clone(),
+            channel_id: channel_id.clone(),
+        };
+        let add_key = format!("ADD {}", serde_json::to_string(&user).unwrap());
+        let delete_key = format!("DELETE {}", user_id);
 
         match self.data.as_ref().expect("only pings have no data") {
             InteractionData::ApplicationCommandData(data) => match data.name {
                 CommandName::Start => {
-                    self.handle_start(data, client, kv, user_id, channel_id, users)
-                        .await
+                    self.handle_start(
+                        data, client, kv, user_id, channel_id, add_key, delete_key, users,
+                    )
+                    .await
                 }
                 CommandName::Stop => {
-                    self.handle_stop(data, client, kv, user_id, channel_id, users)
-                        .await
+                    self.handle_stop(
+                        data, client, kv, user_id, channel_id, add_key, delete_key, users,
+                    )
+                    .await
                 }
                 CommandName::Entry => {
-                    self.handle_entry(data, client, kv, user_id, channel_id, users)
-                        .await
+                    self.handle_entry(
+                        data, client, kv, user_id, channel_id, add_key, delete_key, users,
+                    )
+                    .await
                 }
             },
             _ => unreachable!("Commands are always commands (shocking, I know!)"),
@@ -122,20 +134,23 @@ impl Interaction {
         kv: KvStore,
         user_id: String,
         channel_id: String,
+        add_key: String,
+        delete_key: String,
         users: Vec<message::User>,
     ) -> InteractionResponse {
         console_log!("Handling start!");
-        let user = message::User {
-            uid: user_id.clone(),
-            channel_id: channel_id.clone(),
-        };
-        let key = format!("ADD {}", serde_json::to_string(&user).unwrap());
+        if kv.get(&delete_key).text().await.unwrap().is_some() {
+            if let Err(err) = kv.delete(&delete_key).await {
+                console_error!("Couldn't remove delete key from kv: {}", err);
+                return InteractionResponse::error();
+            }
+        }
         if users.iter().find(|user| user.uid == user_id).is_some()
-            || kv.get(&key).text().await.unwrap().is_some()
+            || kv.get(&add_key).text().await.unwrap().is_some()
         {
             return InteractionResponse::already_active();
         } else {
-            if let Err(err) = kv.put(&key, "FOOP").unwrap().execute().await {
+            if let Err(err) = kv.put(&add_key, "FOOP").unwrap().execute().await {
                 console_error!("Couldn't add user to list: {}", err);
                 return InteractionResponse::error();
             }
@@ -161,12 +176,19 @@ impl Interaction {
         kv: KvStore,
         user_id: String,
         channel_id: String,
+        add_key: String,
+        delete_key: String,
         mut users: Vec<message::User>,
     ) -> InteractionResponse {
         console_log!("Handling stop!");
-        let key = format!("DELETE {}", user_id);
+        if kv.get(&add_key).text().await.unwrap().is_some() {
+            if let Err(err) = kv.delete(&add_key).await {
+                console_error!("Couldn't remove delete key from kv: {}", err);
+                return InteractionResponse::error();
+            }
+        }
         if users.iter().find(|user| user.uid == user_id).is_none()
-            || kv.get(&key).text().await.unwrap().is_some()
+            || kv.get(&delete_key).text().await.unwrap().is_some()
         {
             return InteractionResponse::not_active();
         } else {
@@ -181,7 +203,7 @@ impl Interaction {
                 );
                 return InteractionResponse::error();
             } else {
-                if let Err(err) = kv.put(&key, "POOF").unwrap().execute().await {
+                if let Err(err) = kv.put(&delete_key, "POOF").unwrap().execute().await {
                     console_error!("Couldn't remove user from list: {}", err);
                     return InteractionResponse::error();
                 }
@@ -208,6 +230,8 @@ impl Interaction {
         _kv: KvStore,
         _user_id: String,
         _channel_id: String,
+        _add_key: String,
+        _delete_key: String,
         mut _users: Vec<message::User>,
     ) -> InteractionResponse {
         console_log!("Handling entry");
