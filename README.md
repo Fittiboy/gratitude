@@ -1,6 +1,6 @@
 # Gratitude Bot
 ## Add the bot to your server!
-This is as easy as clicking [here](https://discord.com/api/oauth2/authorize?client_id=1094831789442343002&scope=applications.commands)!
+This is as easy as clicking [here](https://discord.com/api/oauth2/authorize?client_id=1094831789442343002&permissions=1024&scope=applications.commands%20bot)!
 
 ## What is this bot?
 This bot will randomly remind registered users to keep a [gratitude journal](https://www.wikiwand.com/en/Gratitude_journal), right within Discord!  
