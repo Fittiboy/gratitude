@@ -13,4 +13,4 @@ And that's it! New features will be added in the future, and I'm happy to receiv
 I would be grateful for any bugs you [report](https://github.com/Fittiboy/gratitude/issues/new?assignees=&labels=&template=bug_report.md&title=Bug+report%21) as well!
 
 ### Self-hosting
-The bot requires [Durable Objects](https://developers.cloudflare.com/workers/runtime-apis/durable-objects/) for consistent storage of registered users. This means that a paid tier for Cloudflare Workers is required. These start [at $5 per month](https://developers.cloudflare.com/workers/platform/pricing/).
+The bot should be able to run on the free Cloudflare Workers plan, but your mileage may vary. Early in development, there were some requests that exceeded the free plan's resources, but self-hosting should work if you don't have many users.
