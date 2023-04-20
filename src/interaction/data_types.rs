@@ -137,7 +137,6 @@ pub struct OptionData {
     pub r#type: OptionType,
     pub value: Option<OptionValue>,
     pub options: Option<Vec<OptionData>>,
-    pub focues: bool,
 }
 
 #[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
