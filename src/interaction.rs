@@ -329,11 +329,13 @@ impl Interaction {
     }
 
     async fn add_entry(&self, thankful_kv: KvStore, entry: &str) {
-        let id = &self
-            .user
-            .clone()
-            .expect("only users can interact with modals")
-            .id;
+        let id = match self.user.as_ref() {
+            Some(User { id, .. }) => id,
+            None => match self.member {
+                Some(Member { ref user, .. }) => &user.as_ref().unwrap().id,
+                None => unreachable!("There should always be a member or a user!"),
+            },
+        };
         let mut entries = self.get_entries(&thankful_kv, &id).await;
         entries.push(entry.to_string());
         thankful_kv
