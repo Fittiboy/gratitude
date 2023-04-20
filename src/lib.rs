@@ -85,60 +85,19 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     // .register(&mut client)
     // .await;
 
+    let users_kv = env
+        .kv("grateful_users")
+        .expect("Worker should have access to grateful_users binding");
     let entries_kv = env
         .kv("thankful")
         .expect("Worker should have access to thankful binding");
 
     let mut rng = rand::thread_rng();
-    let userlist = match env.durable_object("USERS") {
-        Ok(userlist) => userlist,
-        Err(err) => {
-            console_error!("Error: {:#?}", err);
-            panic!();
-        }
-    };
-    let userlist = match userlist.id_from_name("production") {
-        Ok(userlist) => userlist,
-        Err(err) => {
-            console_error!("Error: {:#?}", err);
-            panic!();
-        }
-    };
-    let userlist = match userlist.get_stub() {
-        Ok(userlist) => userlist,
-        Err(err) => {
-            console_error!("Error: {:#?}", err);
-            panic!();
-        }
-    };
-    //TODO: Migrations?
-    let request_init = RequestInit::new();
-    let request = match Request::new_with_init("/something", &request_init) {
-        Ok(thing) => thing,
-        Err(err) => {
-            console_error!("Error: {:#?}", err);
-            panic!();
-        }
-    };
-    let mut response = match userlist.fetch_with_request(request).await {
-        Ok(response) => response,
-        Err(err) => {
-            console_error!("Error: {:#?}", err);
-            panic!();
-        }
-    };
-    let users = match response.json::<Vec<message::User>>().await {
-        Ok(users) => users,
-        Err(err) => {
-            console_error!("Error: {:#?}", err);
-            panic!();
-        }
-    };
+    let users = message::registered_users(&users_kv).await;
     let users = users.iter().filter(|_| rng.gen_range(1..=24) == 1);
 
     for user in users {
-        console_log!("{:?}", user);
-        // user.prompt(&entries_kv, &mut client).await;
+        user.prompt(&entries_kv, &mut client).await;
     }
 }
 
