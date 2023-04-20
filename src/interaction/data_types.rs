@@ -39,6 +39,7 @@ pub struct MessageComponentData {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[allow(clippy::enum_variant_names)]
 pub enum CustomId {
     #[serde(rename = "grateful_button")]
     GratefulButton,
