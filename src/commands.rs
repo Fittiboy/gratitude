@@ -6,7 +6,7 @@ use crate::DiscordAPIClient;
 
 pub async fn manage_commands(kv: &KvStore, env: &Env, client: &mut DiscordAPIClient) {
     if let Ok(Some(_)) = kv.get("REGISTER").text().await {
-        register_commands(&env, client).await.unwrap();
+        register_commands(env, client).await.unwrap();
     }
 
     if let Ok(Some(name)) = kv.get("UNREGISTER").text().await {
