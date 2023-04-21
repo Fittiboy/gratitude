@@ -537,7 +537,7 @@ impl Message {
                     "brain will change to be more aware of the nice things in life, help ",
                     "you appreciate what you have right now!\n\nYou can use **/start** to ",
                     "sign up for those reminders, **/stop** to stop receiving them, and ",
-                    "**/entry** to add something to the manual at any point!"
+                    "**/entry** to add something to the journal at any point!"
                 )
                 .to_string(),
             ),
