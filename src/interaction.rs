@@ -47,50 +47,11 @@ impl Interaction {
         users_kv: KvStore,
         thankful_kv: KvStore,
     ) -> InteractionResponse {
-        let (user_id, mut channel_id) = match self.user.as_ref() {
-            Some(User { id, .. }) => {
-                let user_id = id.clone();
-                let channel_id = self
-                    .channel_id
-                    .clone()
-                    .expect("If user struct is there, channel_id will be the DM channel");
-                (user_id, channel_id)
-            }
-            None => (
-                self.member
-                    .as_ref()
-                    .unwrap()
-                    .user
-                    .as_ref()
-                    .unwrap()
-                    .id
-                    .clone(),
-                String::new(),
-            ),
-        };
-        let mut channel_payload = std::collections::HashMap::new();
+        let (user_id, mut channel_id) = self.ids();
         if channel_id.is_empty() {
-            channel_payload.insert("recipient_id", user_id.clone());
-            let response = client
-                .post("users/@me/channels")
-                .json(&channel_payload)
-                .send()
-                .await;
-            let channel = match response {
-                Ok(response) => response.json::<Channel>().await,
-                Err(err) => {
-                    console_error!("Couldn't get DM channel: {}", err);
-                    return InteractionResponse::error();
-                }
-            };
-            match channel {
-                Ok(channel) => {
-                    channel_id = channel.id;
-                }
-                Err(err) => {
-                    console_error!("Couldn't get DM channel: {}", err);
-                    return InteractionResponse::error();
-                }
+            channel_id = match self.dm_channel(&user_id, client).await {
+                Some(id) => id,
+                None => return InteractionResponse::error(),
             }
         };
         let users = match users_kv.get("users").json::<Vec<BotUser>>().await {
@@ -129,9 +90,59 @@ impl Interaction {
                     self.handle_entry(client, channel_id, user_id, thankful_kv)
                         .await
                 }
-                CommandName::Help => InteractionResponse::not_implemented(),
+                CommandName::Help => InteractionResponse::help(),
             },
             _ => unreachable!("Commands are always commands (shocking, I know!)"),
+        }
+    }
+
+    pub fn ids(&self) -> (String, String) {
+        match self.user.as_ref() {
+            Some(User { id, .. }) => {
+                let user_id = id.clone();
+                let channel_id = self
+                    .channel_id
+                    .clone()
+                    .expect("If user struct is there, channel_id will be the DM channel");
+                (user_id, channel_id)
+            }
+            None => (
+                self.member
+                    .as_ref()
+                    .unwrap()
+                    .user
+                    .as_ref()
+                    .unwrap()
+                    .id
+                    .clone(),
+                String::new(),
+            ),
+        }
+    }
+
+    pub async fn dm_channel(&self, user_id: &str, client: &mut discord::Client) -> Option<String> {
+        let mut channel_payload = std::collections::HashMap::new();
+        channel_payload.insert("recipient_id", user_id.clone());
+        let response = client
+            .post("users/@me/channels")
+            .json(&channel_payload)
+            .send()
+            .await;
+        let channel = match response {
+            Ok(response) => response.json::<Channel>().await,
+            Err(err) => {
+                console_error!("Couldn't get DM channel: {}", err);
+                return None;
+            }
+        };
+        match channel {
+            Ok(channel) => {
+                return Some(channel.id);
+            }
+            Err(err) => {
+                console_error!("Couldn't get DM channel: {}", err);
+                return None;
+            }
         }
     }
 
@@ -433,6 +444,14 @@ impl InteractionResponse {
             data: Some(InteractionResponseData::Message(Message::not_implemented())),
         }
     }
+
+    fn help() -> InteractionResponse {
+        InteractionResponse {
+            r#type: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(InteractionResponseData::Message(Message::help())),
+        }
+    }
+
     fn success() -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
@@ -504,8 +523,37 @@ impl Message {
         }
     }
 
+    pub fn help() -> Self {
+        Message {
+            content: Some(
+                concat!(
+                    "__**Welcome to Gratitude Bot!**__\n",
+                    "*This bot reminds you to focus on the positive things in life!*\n\n",
+                    "It does this by randomly, once every few days on average, reminding ",
+                    "you of things you were grateful for in the past, while nudging you ",
+                    "to add entries to your very own journal.\nAnything goes here: The ",
+                    "smallest thing that made you smile today, or that big event that ",
+                    "changed your life last month.\nOver time, your brain will change ",
+                    "to be more aware of the nice things in life, help you appreciate ",
+                    "what you have right now!\n\nYou can use **/start** to sign up for ",
+                    "those reminders, **/stop** to stop receiving them, and **/entry** ",
+                    "to add something to the manual at any point!"
+                )
+                .to_string(),
+            ),
+            flags: Some(1 << 6),
+            ..Default::default()
+        }
+    }
+
     pub fn welcome() -> Self {
-        let content = Some("Hi there! welcome to Gratitude Bot! 🥳".into());
+        let content = Some(
+            concat!(
+                "**Hi there! Thank you for deciding to use Gratitude Bot! 🥳**\n",
+                "Click the button below to make your first journal entry!"
+            )
+            .to_string(),
+        );
         Message {
             content,
             components: Some(vec![ActionRow::with_entry_button()]),
