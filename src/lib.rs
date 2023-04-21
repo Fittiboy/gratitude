@@ -20,6 +20,15 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
 
     let router = Router::new();
     router
+        .get_async("/", |_, _| async move {
+            let url = reqwest::Url::parse(concat!(
+                "https://discord.com/api/oauth2/authorize",
+                "?client_id=1094831789442343002",
+                "&permissions=1024",
+                "&scope=applications.commands%20bot",
+            ))?;
+            Response::redirect_with_status(url, 308)
+        })
         .post_async("/", |req, ctx| async move {
             let mut app = bot::App::new(req, ctx);
 
