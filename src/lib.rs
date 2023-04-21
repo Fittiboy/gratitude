@@ -45,7 +45,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
 }
 
 #[event(scheduled)]
-pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
+pub async fn scheduled(event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     let users_kv = env
         .kv("grateful_users")
         .expect("Worker should have access to grateful_users binding");
@@ -56,8 +56,10 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     let mut client = discord::Client::new(token);
     commands::update(&env, &mut client).await;
 
-    let entries_kv = env
-        .kv("thankful")
-        .expect("Worker should have access to thankful binding");
-    users::prompt(&users, &entries_kv, &mut client).await;
+    if event.cron() != "TEST".to_string() {
+        let entries_kv = env
+            .kv("thankful")
+            .expect("Worker should have access to thankful binding");
+        users::prompt(&users, &entries_kv, &mut client).await;
+    }
 }
