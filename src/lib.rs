@@ -1,4 +1,3 @@
-use commands::update_commands;
 use reqwest::{header, Client, RequestBuilder};
 use serde_json::to_string_pretty;
 use worker::*;
@@ -55,7 +54,7 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
 
     let token = discord_token(&env).unwrap();
     let mut client = DiscordAPIClient::new(token);
-    update_commands(&env, &mut client).await;
+    commands::update(&env, &mut client).await;
 
     let entries_kv = env
         .kv("thankful")

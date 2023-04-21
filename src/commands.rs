@@ -4,7 +4,7 @@ use worker::{console_debug, console_error, console_log, Env, Result};
 use crate::interaction::{CommandName, CommandType, OptionType};
 use crate::DiscordAPIClient;
 
-pub async fn update_commands(env: &Env, client: &mut DiscordAPIClient) {
+pub async fn update(env: &Env, client: &mut DiscordAPIClient) {
     let application_id = env.var("DISCORD_APPLICATION_ID").unwrap().to_string();
 
     let mut registered = ApplicationCommand::registered(&application_id, client).await;
