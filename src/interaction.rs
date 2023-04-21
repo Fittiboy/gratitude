@@ -533,7 +533,7 @@ impl Message {
                     "you to add an entry to the gratitude journal it keeps for you, while ",
                     "reminding you of things you said you were grateful for in the past. ",
                     "Anything goes here: The smallest thing that made you smile today, or ",
-                    "that big event that changed your life last month.\nOver time, your ",
+                    "that big event that changed your life last month. Over time, your ",
                     "brain will change to be more aware of the nice things in life, help ",
                     "you appreciate what you have right now!\n\nYou can use **/start** to ",
                     "sign up for those reminders, **/stop** to stop receiving them, and ",
