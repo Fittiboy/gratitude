@@ -72,7 +72,7 @@ pub async fn update(users: &mut Vec<BotUser>, kv: &kv::KvStore) {
 
 pub async fn prompt(users: &Vec<BotUser>, kv: &KvStore, client: &mut discord::Client) {
     let mut rng = thread_rng();
-    let users = users.iter().filter(|_| rng.gen_range(1..=24) == 1);
+    let users = users.iter().filter(|_| rng.gen_range(1..=60) == 1);
 
     for user in users {
         user.prompt(&kv, client).await;
