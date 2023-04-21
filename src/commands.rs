@@ -9,12 +9,13 @@ pub async fn update(env: &Env, client: &mut discord::Client) {
 
     let mut registered = ApplicationCommand::registered(&application_id, client).await;
     let mut available = ApplicationCommand::globals(&application_id).unwrap();
-
-    registered.retain(|c| !available.has(c));
-    delete(&registered, client).await;
+    let available_clone = available.clone();
 
     available.retain(|c| !registered.has(c));
     register(&available, client).await;
+
+    registered.retain(|c| !available_clone.has(c));
+    delete(&registered, client).await;
 }
 
 pub async fn delete(commands: &Vec<ApplicationCommand>, client: &mut discord::Client) {
@@ -52,6 +53,7 @@ impl ApplicationCommand {
                 name: CommandName::Help,
                 application_id: application_id.to_string(),
                 description: "Get some information about the bot!".into(),
+                dm_permission: Some(true),
                 ..Default::default()
             },
             Self {
