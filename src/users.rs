@@ -1,5 +1,5 @@
+use crate::discord;
 use crate::interaction::Message;
-use crate::DiscordAPIClient;
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -70,7 +70,7 @@ pub async fn update(users: &mut Vec<BotUser>, kv: &kv::KvStore) {
     }
 }
 
-pub async fn prompt(users: &Vec<BotUser>, kv: &KvStore, client: &mut DiscordAPIClient) {
+pub async fn prompt(users: &Vec<BotUser>, kv: &KvStore, client: &mut discord::Client) {
     let mut rng = thread_rng();
     let users = users.iter().filter(|_| rng.gen_range(1..=24) == 1);
 
@@ -86,7 +86,7 @@ pub struct BotUser {
 }
 
 impl BotUser {
-    pub async fn prompt(&self, kv: &KvStore, client: &mut DiscordAPIClient) {
+    pub async fn prompt(&self, kv: &KvStore, client: &mut discord::Client) {
         let entry = self.random_entry(kv).await;
         let payload = Message::from_entry(entry);
 

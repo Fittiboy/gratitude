@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 use worker::{console_debug, console_error, console_log, Env, Result};
 
+use crate::discord;
 use crate::interaction::{CommandName, CommandType, OptionType};
-use crate::DiscordAPIClient;
 
-pub async fn update(env: &Env, client: &mut DiscordAPIClient) {
+pub async fn update(env: &Env, client: &mut discord::Client) {
     let application_id = env.var("DISCORD_APPLICATION_ID").unwrap().to_string();
 
     let mut registered = ApplicationCommand::registered(&application_id, client).await;
@@ -17,13 +17,13 @@ pub async fn update(env: &Env, client: &mut DiscordAPIClient) {
     register(&available, client).await;
 }
 
-pub async fn delete(commands: &Vec<ApplicationCommand>, client: &mut DiscordAPIClient) {
+pub async fn delete(commands: &Vec<ApplicationCommand>, client: &mut discord::Client) {
     for command in commands {
         command.delete(client).await;
     }
 }
 
-pub async fn register(commands: &Vec<ApplicationCommand>, client: &mut DiscordAPIClient) {
+pub async fn register(commands: &Vec<ApplicationCommand>, client: &mut discord::Client) {
     for command in commands {
         command.register(client).await;
     }
@@ -86,7 +86,7 @@ impl ApplicationCommand {
         ])
     }
 
-    pub async fn registered(application_id: &str, client: &mut DiscordAPIClient) -> Vec<Self> {
+    pub async fn registered(application_id: &str, client: &mut discord::Client) -> Vec<Self> {
         let response = match client
             .get(&format!("applications/{}/commands", application_id))
             .send()
@@ -124,7 +124,7 @@ impl ApplicationCommand {
         }
     }
 
-    pub async fn get_id(&self, client: &mut DiscordAPIClient) -> Option<String> {
+    pub async fn get_id(&self, client: &mut discord::Client) -> Option<String> {
         let commands = ApplicationCommand::registered(&self.application_id, client).await;
         match commands.iter().find(|command| command.name == self.name) {
             Some(command) => command.id.clone(),
@@ -132,7 +132,7 @@ impl ApplicationCommand {
         }
     }
 
-    pub async fn register(&self, client: &mut DiscordAPIClient) -> Self {
+    pub async fn register(&self, client: &mut discord::Client) -> Self {
         let response = match client
             .post(&format!("applications/{}/commands", self.application_id))
             .json(&CommandRegister::from(self))
@@ -164,7 +164,7 @@ impl ApplicationCommand {
         }
     }
 
-    pub async fn delete(&self, client: &mut DiscordAPIClient) {
+    pub async fn delete(&self, client: &mut discord::Client) {
         if let Some(ref id) = self.get_id(client).await {
             match client
                 .delete(&format!(

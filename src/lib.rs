@@ -1,9 +1,9 @@
-use reqwest::{header, Client, RequestBuilder};
 use serde_json::to_string_pretty;
 use worker::*;
 
 mod bot;
 mod commands;
+mod discord;
 mod error;
 mod interaction;
 mod users;
@@ -52,59 +52,12 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     let mut users = users::registered(&users_kv).await;
     users::update(&mut users, &users_kv).await;
 
-    let token = discord_token(&env).unwrap();
-    let mut client = DiscordAPIClient::new(token);
+    let token = discord::token(&env).unwrap();
+    let mut client = discord::Client::new(token);
     commands::update(&env, &mut client).await;
 
     let entries_kv = env
         .kv("thankful")
         .expect("Worker should have access to thankful binding");
     users::prompt(&users, &entries_kv, &mut client).await;
-}
-
-pub struct DiscordAPIClient {
-    client: Client,
-}
-
-impl DiscordAPIClient {
-    pub fn new(token: String) -> Self {
-        let headers = Self::headers(token);
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .build()
-            .unwrap();
-        Self { client }
-    }
-
-    pub fn patch(&mut self, url: &str) -> RequestBuilder {
-        let url = format!("https://discord.com/api/{}", url);
-        self.client.patch(url)
-    }
-
-    pub fn post(&mut self, url: &str) -> RequestBuilder {
-        let url = format!("https://discord.com/api/{}", url);
-        self.client.post(url)
-    }
-
-    pub fn get(&mut self, url: &str) -> RequestBuilder {
-        let url = format!("https://discord.com/api/{}", url);
-        self.client.get(url)
-    }
-
-    pub fn delete(&mut self, url: &str) -> RequestBuilder {
-        let url = format!("https://discord.com/api/{}", url);
-        self.client.delete(url)
-    }
-
-    fn headers(token: String) -> header::HeaderMap {
-        let mut headers = header::HeaderMap::new();
-        let auth_value = header::HeaderValue::from_str(&token).unwrap();
-        headers.insert(header::AUTHORIZATION, auth_value);
-        headers
-    }
-}
-
-pub fn discord_token(env: &Env) -> Result<String> {
-    let discord_token = env.var("DISCORD_TOKEN")?.to_string();
-    Ok("Bot ".to_string() + &discord_token)
 }

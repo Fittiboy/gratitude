@@ -1,8 +1,9 @@
 use serde_json::{from_str, to_string};
 use worker::{console_error, console_log, kv::KvStore, Env};
 
+use crate::discord;
 use crate::error::Error;
-use crate::{discord_token, users::BotUser, DiscordAPIClient};
+use crate::users::BotUser;
 
 pub mod data_types;
 pub use data_types::*;
@@ -19,7 +20,7 @@ impl Interaction {
         match self.r#type {
             InteractionType::Ping => Ok(self.handle_ping()),
             InteractionType::ApplicationCommand => {
-                let mut client = DiscordAPIClient::new(discord_token(&ctx.env).unwrap());
+                let mut client = discord::Client::new(discord::token(&ctx.env).unwrap());
                 let users_kv = ctx
                     .env
                     .kv("grateful_users")
@@ -42,7 +43,7 @@ impl Interaction {
 
     pub async fn handle_command(
         &self,
-        client: &mut DiscordAPIClient,
+        client: &mut discord::Client,
         users_kv: KvStore,
         thankful_kv: KvStore,
     ) -> InteractionResponse {
@@ -136,7 +137,7 @@ impl Interaction {
 
     async fn handle_start(
         &self,
-        client: &mut DiscordAPIClient,
+        client: &mut discord::Client,
         kv: KvStore,
         user_id: String,
         channel_id: String,
@@ -173,7 +174,7 @@ impl Interaction {
 
     async fn handle_stop(
         &self,
-        client: &mut DiscordAPIClient,
+        client: &mut discord::Client,
         kv: KvStore,
         user_id: String,
         channel_id: String,
@@ -223,7 +224,7 @@ impl Interaction {
 
     async fn handle_entry(
         &self,
-        client: &mut DiscordAPIClient,
+        client: &mut discord::Client,
         channel_id: String,
         user_id: String,
         thankful_kv: KvStore,
@@ -288,7 +289,7 @@ impl Interaction {
     async fn handle_modal(&self, env: &Env, thankful_kv: KvStore) -> InteractionResponse {
         let entry = self.entry();
         self.add_entry(thankful_kv, &entry).await;
-        let token = discord_token(env).unwrap();
+        let token = discord::token(env).unwrap();
         self.disable_button(token).await;
 
         InteractionResponse {
@@ -410,7 +411,7 @@ impl Interaction {
         payload: MessageEdit,
     ) {
         let channel_id = self.channel_id.clone().unwrap();
-        let client = DiscordAPIClient::new(token)
+        let client = discord::Client::new(token)
             .patch(&format!("channels/{}/messages/{}", channel_id, message_id,));
         if let Err(error) = client
             .json(&payload)
