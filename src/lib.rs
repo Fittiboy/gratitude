@@ -12,20 +12,10 @@ mod message;
 mod utils;
 mod verification;
 
-fn log_request(req: &Request) {
-    console_log!(
-        "{} - [{}], located at: {:?}, within: {}",
-        Date::now().to_string(),
-        req.path(),
-        req.cf().coordinates().unwrap_or_default(),
-        req.cf().region().unwrap_or("unknown region".into())
-    );
-}
-
 #[event(fetch)]
-pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Response> {
-    log_request(&req);
+pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     utils::set_panic_hook();
+    utils::log_request(&req);
 
     let router = Router::new();
     router
