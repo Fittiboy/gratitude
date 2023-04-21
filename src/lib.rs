@@ -1,3 +1,4 @@
+use crate::commands::manage_commands;
 use rand::Rng;
 use reqwest::{header, Client, RequestBuilder};
 use worker::*;
@@ -45,50 +46,14 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     let token = discord_token(&env).unwrap();
     let mut client = DiscordAPIClient::new(token);
 
-    // use crate::commands::{ApplicationCommand, ApplicationCommandOption};
-    // use crate::interaction::data_types::{CommandName, OptionType};
-    // let application_id = discord_application_id(&env).unwrap();
-    // ApplicationCommand {
-    //     application_id: application_id.clone(),
-    //     description: "Start receiving reminders from the bot!".into(),
-    //     dm_permission: Some(true),
-    //     ..Default::default()
-    // }
-    // .register(&mut client)
-    // .await;
-    // ApplicationCommand {
-    //     name: CommandName::Stop,
-    //     application_id: application_id.clone(),
-    //     description: "Stop receiving reminders from the bot!".into(),
-    //     dm_permission: Some(true),
-    //     ..Default::default()
-    // }
-    // .register(&mut client)
-    // .await;
-    // ApplicationCommand {
-    //     name: CommandName::Entry,
-    //     description: "Add an entry to your gratitude journal!".into(),
-    //     options: Some(vec![ApplicationCommandOption {
-    //         r#type: OptionType::String,
-    //         name: "entry".into(),
-    //         description: "Something, anything, you are feeling grateful for!".into(),
-    //         required: Some(true),
-    //         min_length: Some(5),
-    //         max_length: Some(1000),
-    //     }]),
-    //     application_id,
-    //     dm_permission: Some(true),
-    //     ..Default::default()
-    // }
-    // .register(&mut client)
-    // .await;
-
     let users_kv = env
         .kv("grateful_users")
         .expect("Worker should have access to grateful_users binding");
     let entries_kv = env
         .kv("thankful")
         .expect("Worker should have access to thankful binding");
+
+    manage_commands(&users_kv, &env, &mut client).await;
 
     let mut users = message::registered_users(&users_kv).await;
     let mut done = false;
@@ -190,9 +155,4 @@ impl DiscordAPIClient {
 pub fn discord_token(env: &Env) -> Result<String> {
     let discord_token = env.var("DISCORD_TOKEN")?.to_string();
     Ok("Bot ".to_string() + &discord_token)
-}
-
-pub fn discord_application_id(env: &Env) -> Result<String> {
-    let application_id = env.var("DISCORD_APPLICATION_ID")?.to_string();
-    Ok(application_id)
 }

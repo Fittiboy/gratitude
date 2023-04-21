@@ -2,7 +2,7 @@ use crate::error::Error;
 use crate::http::HttpError;
 use crate::interaction::{Interaction, InteractionResponse};
 use crate::verification::verify_signature;
-use worker::{Request, RouteContext};
+use worker::{console_log, Request, RouteContext};
 
 pub struct App {
     req: Request,
@@ -45,10 +45,10 @@ impl App {
     pub async fn handle_request(&mut self) -> Result<InteractionResponse, HttpError> {
         let body = self.validate_sig().await?;
 
-        worker::console_log!("Request body : {}", body);
+        console_log!("Request body : {}", body);
 
         let interaction = serde_json::from_str::<Interaction>(&body).map_err(Error::JsonFailed)?;
-        worker::console_log! {"Request parsed : {}", serde_json::to_string_pretty(&interaction).unwrap()};
+        console_log! {"Request parsed : {}", serde_json::to_string_pretty(&interaction).unwrap()};
         let response = interaction.perform(&mut self.ctx).await?;
 
         Ok(response)

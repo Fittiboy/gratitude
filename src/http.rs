@@ -4,13 +4,13 @@ use std::fmt;
 use crate::error::Error;
 
 #[derive(Serialize)]
-pub(crate) struct HttpResponse {
+pub struct HttpResponse {
     pub status: u16,
     pub body: String,
 }
 
 #[derive(Debug)]
-pub(crate) enum HttpStatus {
+pub enum HttpStatus {
     BadRequest = 400,
     Unauthorized = 401,
     InternalServerError = 500,
@@ -18,8 +18,8 @@ pub(crate) enum HttpStatus {
 
 #[derive(Debug)]
 pub struct HttpError {
-    pub(crate) status: HttpStatus,
-    reason: Error,
+    pub status: HttpStatus,
+    pub reason: Error,
 }
 
 impl fmt::Display for HttpError {

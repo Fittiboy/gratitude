@@ -1,8 +1,67 @@
 use serde::{Deserialize, Serialize};
-use worker::{console_debug, console_error, console_log};
+use worker::{console_debug, console_error, console_log, kv::KvStore, Env, Result};
 
 use crate::interaction::{CommandName, CommandType, OptionType};
 use crate::DiscordAPIClient;
+
+pub async fn manage_commands(kv: &KvStore, env: &Env, client: &mut DiscordAPIClient) {
+    if let Ok(Some(_)) = kv.get("REGISTER").text().await {
+        register_commands(&env, client).await.unwrap();
+    }
+
+    if let Ok(Some(name)) = kv.get("UNREGISTER").text().await {
+        if let Ok(name) = serde_json::from_str(&name) {
+            ApplicationCommand {
+                name,
+                ..Default::default()
+            }
+            .delete(client)
+            .await;
+        }
+    }
+}
+
+pub async fn register_commands(env: &Env, client: &mut DiscordAPIClient) -> Result<()> {
+    let application_id = env.var("DISCORD_APPLICATION_ID")?.to_string();
+    let commands = global_commands(&application_id);
+    for command in commands {
+        command.register(client).await;
+    }
+    Ok(())
+}
+
+pub fn global_commands(application_id: &str) -> Vec<ApplicationCommand> {
+    vec![
+        ApplicationCommand {
+            application_id: application_id.to_string(),
+            description: "Start receiving reminders from the bot!".into(),
+            dm_permission: Some(true),
+            ..Default::default()
+        },
+        ApplicationCommand {
+            name: CommandName::Stop,
+            application_id: application_id.to_string(),
+            description: "Stop receiving reminders from the bot!".into(),
+            dm_permission: Some(true),
+            ..Default::default()
+        },
+        ApplicationCommand {
+            name: CommandName::Entry,
+            description: "Add an entry to your gratitude journal!".into(),
+            options: Some(vec![ApplicationCommandOption {
+                r#type: OptionType::String,
+                name: "entry".into(),
+                description: "Something, anything, you are feeling grateful for!".into(),
+                required: Some(true),
+                min_length: Some(5),
+                max_length: Some(1000),
+            }]),
+            application_id: application_id.to_string(),
+            dm_permission: Some(true),
+            ..Default::default()
+        },
+    ]
+}
 
 #[allow(dead_code)]
 impl ApplicationCommand {
@@ -75,7 +134,7 @@ impl ApplicationCommand {
     }
 
     pub async fn delete(&self, client: &mut DiscordAPIClient) {
-        if let Some(ref id) = self.id {
+        if let Some(ref id) = self.get_id(client).await {
             match client
                 .delete(&format!(
                     "applications/{}/commands/{}",
