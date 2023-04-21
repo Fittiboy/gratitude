@@ -550,7 +550,7 @@ impl Message {
         let content = Some(
             concat!(
                 "**Hi there! Thank you for deciding to use Gratitude Bot! 🥳**\n",
-                "Click the button below to make your first journal entry!"
+                "Click the button below to make a quick journal entry right now!"
             )
             .to_string(),
         );
@@ -562,7 +562,14 @@ impl Message {
     }
 
     pub fn goodbye() -> Self {
-        let content = Some("You will no longer receive reminders! See you around! 😊".into());
+        let content = Some(
+            concat!(
+                "**You will no longer receive reminders! See you around! 😊**\n",
+                "Rememeber that you can still use **/entry** to make entries, ",
+                "and **/start** to receive these reminders again!"
+            )
+            .into(),
+        );
         Message {
             content,
             ..Default::default()
@@ -572,7 +579,7 @@ impl Message {
     pub fn from_entry(journal_entry: Option<String>) -> Self {
         let content = match journal_entry {
             Some(text) => Some(format!(
-                "**Here's something you were grateful for in the past:**\n{}",
+                "__**Here's something you said you were grateful for in the past:**__\n{}",
                 text
             )),
             None => Some("Hope you're having a great day!".into()),
@@ -588,7 +595,7 @@ impl Message {
         Message {
             content: Some(
                 "It looks like that worked! If it didn't do what you expected, contact Fitti#6969"
-                    .into(),
+                    .to_string(),
             ),
             flags: Some(1 << 6),
             ..Default::default()
@@ -618,11 +625,16 @@ impl Message {
 
     pub fn already_active() -> Self {
         Message {
-            content: Some(format!(
-                "Looks like you're already an active user! {} {}",
-                "The bot will randomly send you reminders about once per day.",
-                "Use the /stop command to stop receiving those reminders!"
-            )),
+            content: Some(
+                concat!(
+                    "Looks like you're already an active user! ",
+                    "The bot will randomly send you reminders every few days.\n",
+                    "Use the **/stop** command to stop receiving those reminders! ",
+                    "Remember that you can use **/entry** to add something to your ",
+                    "journal at any time!"
+                )
+                .to_string(),
+            ),
             flags: Some(1 << 6),
             ..Default::default()
         }
@@ -630,11 +642,16 @@ impl Message {
 
     pub fn not_active() -> Self {
         Message {
-            content: Some(format!(
-                "Looks like you're not an active user! {} {}",
-                "The bot will not send you reminders.",
-                "Use the /start command to start receiving those reminders!"
-            )),
+            content: Some(
+                concat!(
+                    "Looks like you're not an active user! ",
+                    "The bot will not send you reminders.\n",
+                    "Use the **/start** command to start receiving those reminders! ",
+                    "Remember that you can always use **/entry** to add something to ",
+                    "your journal!"
+                )
+                .to_string(),
+            ),
             flags: Some(1 << 6),
             ..Default::default()
         }
