@@ -116,6 +116,8 @@ pub struct ApplicationCommandData {
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub enum CommandName {
+    #[serde(rename = "help")]
+    Help,
     #[serde(rename = "start")]
     Start,
     #[serde(rename = "stop")]

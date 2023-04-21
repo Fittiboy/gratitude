@@ -1,77 +1,94 @@
 use serde::{Deserialize, Serialize};
-use serde_json::from_str;
-use worker::{console_debug, console_error, console_log, kv::KvStore, Env, Result};
+use worker::{console_debug, console_error, console_log, Env, Result};
 
 use crate::interaction::{CommandName, CommandType, OptionType};
 use crate::DiscordAPIClient;
 
-pub async fn update_commands(kv: &KvStore, env: &Env, client: &mut DiscordAPIClient) {
-    if let Ok(Some(_)) = kv.get("REGISTER").text().await {
-        register_commands(env, client).await.unwrap();
-    }
+pub async fn update_commands(env: &Env, client: &mut DiscordAPIClient) {
+    let application_id = env.var("DISCORD_APPLICATION_ID").unwrap().to_string();
 
-    if let Ok(Some(name)) = kv.get("UNREGISTER").text().await {
-        if let Ok(name) = from_str(&name) {
-            ApplicationCommand::by_name(name).delete(client).await;
-        }
+    let mut registered = ApplicationCommand::registered(&application_id, client).await;
+    let mut available = ApplicationCommand::globals(&application_id).unwrap();
+
+    registered.retain(|c| !available.has(c));
+    delete(&registered, client).await;
+
+    available.retain(|c| !registered.has(c));
+    register(&available, client).await;
+}
+
+pub async fn delete(commands: &Vec<ApplicationCommand>, client: &mut DiscordAPIClient) {
+    for command in commands {
+        command.delete(client).await;
     }
 }
 
-pub async fn register_commands(env: &Env, client: &mut DiscordAPIClient) -> Result<()> {
-    let application_id = env.var("DISCORD_APPLICATION_ID")?.to_string();
-    let commands = global_commands(&application_id);
+pub async fn register(commands: &Vec<ApplicationCommand>, client: &mut DiscordAPIClient) {
     for command in commands {
         command.register(client).await;
     }
-    Ok(())
 }
 
-pub fn global_commands(application_id: &str) -> Vec<ApplicationCommand> {
-    vec![
-        ApplicationCommand {
-            name: CommandName::Start,
-            application_id: application_id.to_string(),
-            description: "Start receiving reminders from the bot!".into(),
-            dm_permission: Some(true),
-            ..Default::default()
-        },
-        ApplicationCommand {
-            name: CommandName::Stop,
-            application_id: application_id.to_string(),
-            description: "Stop receiving reminders from the bot!".into(),
-            dm_permission: Some(true),
-            ..Default::default()
-        },
-        ApplicationCommand {
-            name: CommandName::Entry,
-            description: "Add an entry to your gratitude journal!".into(),
-            options: Some(vec![ApplicationCommandOption {
-                r#type: OptionType::String,
-                name: "entry".into(),
-                description: "Something, anything, you are feeling grateful for!".into(),
-                required: Some(true),
-                min_length: Some(5),
-                max_length: Some(1000),
-            }]),
-            application_id: application_id.to_string(),
-            dm_permission: Some(true),
-            ..Default::default()
-        },
-    ]
+trait HasCommand {
+    fn has(&self, other: &ApplicationCommand) -> bool;
+}
+
+impl HasCommand for Vec<ApplicationCommand> {
+    fn has(&self, other: &ApplicationCommand) -> bool {
+        for command in self {
+            if command.name == other.name {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[allow(dead_code)]
 impl ApplicationCommand {
-    pub fn by_name(name: CommandName) -> Self {
-        Self {
-            name,
-            ..Default::default()
-        }
+    pub fn globals(application_id: &str) -> Result<Vec<Self>> {
+        Ok(vec![
+            Self {
+                name: CommandName::Help,
+                application_id: application_id.to_string(),
+                description: "Get some information about the bot!".into(),
+                ..Default::default()
+            },
+            Self {
+                name: CommandName::Start,
+                application_id: application_id.to_string(),
+                description: "Start receiving reminders from the bot!".into(),
+                dm_permission: Some(true),
+                ..Default::default()
+            },
+            Self {
+                name: CommandName::Stop,
+                application_id: application_id.to_string(),
+                description: "Stop receiving reminders from the bot!".into(),
+                dm_permission: Some(true),
+                ..Default::default()
+            },
+            Self {
+                name: CommandName::Entry,
+                description: "Add an entry to your gratitude journal!".into(),
+                options: Some(vec![ApplicationCommandOption {
+                    r#type: OptionType::String,
+                    name: "entry".into(),
+                    description: "Something, anything, you are feeling grateful for!".into(),
+                    required: Some(true),
+                    min_length: Some(5),
+                    max_length: Some(1000),
+                }]),
+                application_id: application_id.to_string(),
+                dm_permission: Some(true),
+                ..Default::default()
+            },
+        ])
     }
 
-    pub async fn get_id(&self, client: &mut DiscordAPIClient) -> Option<String> {
+    pub async fn registered(application_id: &str, client: &mut DiscordAPIClient) -> Vec<Self> {
         let response = match client
-            .get(&format!("applications/{}/commands", self.application_id))
+            .get(&format!("applications/{}/commands", application_id))
             .send()
             .await
         {
@@ -91,14 +108,24 @@ impl ApplicationCommand {
                 panic!();
             }
         };
-        let commands = match commands {
+        match commands {
             Ok(commands) => commands,
             Err(err) => {
                 console_error!("Couldn't parse commands response: {}", err);
                 panic!();
             }
-        };
+        }
+    }
 
+    pub fn by_name(name: CommandName) -> Self {
+        Self {
+            name,
+            ..Default::default()
+        }
+    }
+
+    pub async fn get_id(&self, client: &mut DiscordAPIClient) -> Option<String> {
+        let commands = ApplicationCommand::registered(&self.application_id, client).await;
         match commands.iter().find(|command| command.name == self.name) {
             Some(command) => command.id.clone(),
             None => None,

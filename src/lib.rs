@@ -55,7 +55,7 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
 
     let token = discord_token(&env).unwrap();
     let mut client = DiscordAPIClient::new(token);
-    update_commands(&users_kv, &env, &mut client).await;
+    update_commands(&env, &mut client).await;
 
     let entries_kv = env
         .kv("thankful")

@@ -128,6 +128,7 @@ impl Interaction {
                     self.handle_entry(client, channel_id, user_id, thankful_kv)
                         .await
                 }
+                CommandName::Help => InteractionResponse::not_implemented(),
             },
             _ => unreachable!("Commands are always commands (shocking, I know!)"),
         }
@@ -424,6 +425,13 @@ impl Interaction {
 }
 
 impl InteractionResponse {
+    #[allow(dead_code)]
+    fn not_implemented() -> InteractionResponse {
+        InteractionResponse {
+            r#type: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(InteractionResponseData::Message(Message::not_implemented())),
+        }
+    }
     fn success() -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
@@ -487,6 +495,14 @@ impl TextInput {
 }
 
 impl Message {
+    pub fn not_implemented() -> Self {
+        Message {
+            content: Some("This command is not yet implemented! Coming soon!".into()),
+            flags: Some(1 << 6),
+            ..Default::default()
+        }
+    }
+
     pub fn welcome() -> Self {
         let content = Some("Hi there! welcome to Gratitude Bot! 🥳".into());
         Message {
