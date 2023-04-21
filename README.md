@@ -8,6 +8,7 @@ This bot will randomly remind registered users to keep a
 [gratitude journal](https://www.wikiwand.com/en/Gratitude_journal), right within Discord!  
 It runs on
 [Cloudflare workers](https://workers.dev/), and is very simple to use:
+1. Use `/help` to get more information
 1. Use `/start` to begin keeping your journal
 1. Use `/entry` to add entries even if the bot didn't send you a reminder yet
 1. Use `/stop` to stop receiving reminders
