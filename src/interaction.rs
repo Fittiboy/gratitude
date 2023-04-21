@@ -246,7 +246,7 @@ impl Interaction {
         let payload = Message {
             id: None,
             channel_id: None,
-            content: Some(format!("**You added the following entry:**\n{}", entry)),
+            content: Some(format!("__**You added the following entry:**__\n{}", entry)),
             flags: None,
             components: Some(vec![]),
         };
@@ -594,7 +594,7 @@ impl Message {
     pub fn success() -> Self {
         Message {
             content: Some(
-                "It looks like that worked! If it didn't do what you expected, contact Fitti#6969"
+                "**It looks like that worked! 🥳** If it didn't do what you expected, contact Fitti#6969"
                     .to_string(),
             ),
             flags: Some(1 << 6),
