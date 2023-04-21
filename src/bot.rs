@@ -1,8 +1,10 @@
 use crate::error::Error;
-use crate::http::HttpError;
 use crate::interaction::{Interaction, InteractionResponse};
 use crate::verification::verify_signature;
+use http::HttpError;
 use worker::{console_log, Request, RouteContext};
+
+mod http;
 
 pub struct App {
     req: Request,

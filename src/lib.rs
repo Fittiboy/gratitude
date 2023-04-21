@@ -7,7 +7,6 @@ mod bot;
 mod commands;
 mod embed;
 mod error;
-mod http;
 mod interaction;
 mod message;
 mod utils;

@@ -1,12 +1,11 @@
-use serde::Serialize;
 use std::fmt;
 
 use crate::error::Error;
 
-#[derive(Serialize)]
-pub struct HttpResponse {
-    pub status: u16,
-    pub body: String,
+#[derive(Debug)]
+pub struct HttpError {
+    pub status: HttpStatus,
+    pub reason: Error,
 }
 
 #[derive(Debug)]
@@ -14,12 +13,6 @@ pub enum HttpStatus {
     BadRequest = 400,
     Unauthorized = 401,
     InternalServerError = 500,
-}
-
-#[derive(Debug)]
-pub struct HttpError {
-    pub status: HttpStatus,
-    pub reason: Error,
 }
 
 impl fmt::Display for HttpError {
