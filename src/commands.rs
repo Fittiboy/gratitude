@@ -11,12 +11,7 @@ pub async fn manage_commands(kv: &KvStore, env: &Env, client: &mut DiscordAPICli
 
     if let Ok(Some(name)) = kv.get("UNREGISTER").text().await {
         if let Ok(name) = serde_json::from_str(&name) {
-            ApplicationCommand {
-                name,
-                ..Default::default()
-            }
-            .delete(client)
-            .await;
+            ApplicationCommand::by_name(name).delete(client).await;
         }
     }
 }
@@ -33,6 +28,7 @@ pub async fn register_commands(env: &Env, client: &mut DiscordAPIClient) -> Resu
 pub fn global_commands(application_id: &str) -> Vec<ApplicationCommand> {
     vec![
         ApplicationCommand {
+            name: CommandName::Start,
             application_id: application_id.to_string(),
             description: "Start receiving reminders from the bot!".into(),
             dm_permission: Some(true),
@@ -65,6 +61,13 @@ pub fn global_commands(application_id: &str) -> Vec<ApplicationCommand> {
 
 #[allow(dead_code)]
 impl ApplicationCommand {
+    pub fn by_name(name: CommandName) -> Self {
+        Self {
+            name,
+            ..Default::default()
+        }
+    }
+
     pub async fn get_id(&self, client: &mut DiscordAPIClient) -> Option<String> {
         let response = match client
             .get(&format!("applications/{}/commands", self.application_id))

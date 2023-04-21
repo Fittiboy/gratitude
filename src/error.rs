@@ -16,20 +16,10 @@ pub enum Error {
 
     #[error("Verification failed.")]
     VerificationFailed(VerificationError),
-    // #[error("Interaction failed.")]
-    // InteractionFailed(InteractionError),
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum InteractionError {
-    #[allow(dead_code)]
-    #[error("Error communicating with {0}")]
-    UpstreamError(String),
-
-    // #[error("Command not found {0}")]
-    // UnknownCommand(String),
-    // #[error("Something went wrong")]
-    // GenericError(),
     #[error("Cloudflare worker error: {0}")]
     WorkerError(String),
 }
