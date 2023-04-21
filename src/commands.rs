@@ -4,7 +4,7 @@ use worker::{console_debug, console_error, console_log, kv::KvStore, Env, Result
 use crate::interaction::{CommandName, CommandType, OptionType};
 use crate::DiscordAPIClient;
 
-pub async fn manage_commands(kv: &KvStore, env: &Env, client: &mut DiscordAPIClient) {
+pub async fn update_commands(kv: &KvStore, env: &Env, client: &mut DiscordAPIClient) {
     if let Ok(Some(_)) = kv.get("REGISTER").text().await {
         register_commands(env, client).await.unwrap();
     }
