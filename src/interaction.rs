@@ -529,13 +529,13 @@ impl Message {
                 concat!(
                     "__**Welcome to Gratitude Bot!**__\n",
                     "*This bot makes you focus on the positive things in life!*\n\n",
-                    "It does this by randomly, once every few days on average, reminding ",
-                    "you of things you said you were grateful for in the past, while ",
-                    "nudging you to add entries to your very own journal. Anything goes ",
-                    "here: The smallest thing that made you smile today, or that big ",
-                    "event that changed your life last month.\nOver time, your brain ",
-                    "will change to be more aware of the nice things in life, help you ",
-                    "appreciate what you have right now!\n\nYou can use **/start** to ",
+                    "It does this by randomly, once every few days on average, nudging ",
+                    "you to add an entry to the gratitude journal it keeps for you, while ",
+                    "reminding you of things you said you were grateful for in the past. ",
+                    "Anything goes here: The smallest thing that made you smile today, or ",
+                    "that big event that changed your life last month.\nOver time, your ",
+                    "brain will change to be more aware of the nice things in life, help ",
+                    "you appreciate what you have right now!\n\nYou can use **/start** to ",
                     "sign up for those reminders, **/stop** to stop receiving them, and ",
                     "**/entry** to add something to the manual at any point!"
                 )
