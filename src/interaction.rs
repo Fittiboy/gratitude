@@ -1,7 +1,8 @@
+use serde_json::{from_str, to_string};
 use worker::{console_error, console_log, kv::KvStore, Env};
 
 use crate::error::Error;
-use crate::{discord_token, message::BotUser, DiscordAPIClient};
+use crate::{discord_token, users::BotUser, DiscordAPIClient};
 
 pub mod data_types;
 pub use data_types::*;
@@ -106,7 +107,7 @@ impl Interaction {
             uid: user_id.clone(),
             channel_id: channel_id.clone(),
         };
-        let add_key = format!("ADD {}", serde_json::to_string(&user).unwrap());
+        let add_key = format!("ADD {}", to_string(&user).unwrap());
         let delete_key = format!("DELETE {}", user_id);
 
         match self.data.as_ref().expect("only pings have no data") {
@@ -344,7 +345,7 @@ impl Interaction {
 
     async fn get_entries(&self, kv: &KvStore, id: &str) -> Vec<String> {
         match kv.get(id).text().await {
-            Ok(Some(text)) => serde_json::from_str(&text).unwrap(),
+            Ok(Some(text)) => from_str(&text).unwrap(),
             Ok(None) => Vec::new(),
             Err(err) => {
                 console_error!("Couldn't get entries: {}", err);

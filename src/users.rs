@@ -3,10 +3,74 @@ use crate::DiscordAPIClient;
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
+use serde_json::from_str;
 use worker::kv::KvStore;
 use worker::*;
 
-pub async fn prompt_users(users: &Vec<BotUser>, kv: &KvStore, client: &mut DiscordAPIClient) {
+pub async fn registered(kv: &KvStore) -> Vec<BotUser> {
+    kv.get("users")
+        .json::<Vec<BotUser>>()
+        .await
+        .unwrap_or_else(|err| {
+            console_error!("Couldn't parse string into vector of users: {}!", err);
+            panic!()
+        })
+        .unwrap_or_else(|| {
+            console_error!("No registered users!");
+            panic!()
+        })
+        .into_iter()
+        .collect()
+}
+
+pub async fn update(users: &mut Vec<BotUser>, kv: &kv::KvStore) {
+    loop {
+        let mut to_delete = Vec::new();
+        let mut to_add = Vec::new();
+
+        let todo = kv.list().execute().await.unwrap();
+
+        let mut keys = todo.keys;
+        keys.retain(|key| key.name != "users");
+        for key in keys.as_slice() {
+            match key.name {
+                ref name if name.starts_with("DELETE") => {
+                    let uid = name.as_str().split_once(' ').unwrap().1;
+                    to_delete.push(uid.to_owned());
+                }
+                ref name if name.starts_with("ADD") => {
+                    let user = name.as_str().split_once(' ').unwrap().1;
+                    to_add.push(user.to_owned());
+                }
+                ref name => {
+                    console_log!("Ignoring key: {}!", name);
+                }
+            }
+        }
+        for user in to_add.as_slice() {
+            users.push(from_str::<BotUser>(user).unwrap());
+        }
+        users.retain(|user| !to_delete.contains(&user.uid));
+        for key in keys {
+            match kv.delete(&key.name).await {
+                Ok(_) => console_log!("Removed key: {}", &key.name),
+                Err(err) => console_error!("Couldn't remove user {}: {}", &key.name, err),
+            };
+        }
+        match kv.put("users", &users) {
+            Ok(task) => match task.execute().await {
+                Ok(_) => console_log!("Updated users!"),
+                Err(err) => console_error!("Couldn't update users {}", err),
+            },
+            Err(err) => console_error!("Couldn't update users: {}", err),
+        }
+        if todo.list_complete {
+            break;
+        }
+    }
+}
+
+pub async fn prompt(users: &Vec<BotUser>, kv: &KvStore, client: &mut DiscordAPIClient) {
     let mut rng = thread_rng();
     let users = users.iter().filter(|_| rng.gen_range(1..=24) == 1);
 
@@ -39,73 +103,10 @@ impl BotUser {
         let entries = kv.get(&self.uid).text().await.unwrap();
         console_log!("Entries: {:?}", entries);
         let entries: Vec<String> = match entries {
-            Some(entries) => serde_json::from_str(&entries).unwrap(),
+            Some(entries) => from_str(&entries).unwrap(),
             None => Vec::new(),
         };
         let mut rng = rand::thread_rng();
         entries.choose(&mut rng).cloned()
-    }
-}
-
-pub async fn registered_users(users_kv: &KvStore) -> Vec<BotUser> {
-    users_kv
-        .get("users")
-        .json::<Vec<BotUser>>()
-        .await
-        .unwrap_or_else(|err| {
-            console_error!("Couldn't parse string into vector of users: {}!", err);
-            panic!()
-        })
-        .unwrap_or_else(|| {
-            console_error!("No registered users!");
-            panic!()
-        })
-        .into_iter()
-        .collect()
-}
-
-pub async fn update_users(users: &mut Vec<BotUser>, kv: &kv::KvStore) {
-    let mut done = false;
-    while !done {
-        let mut to_delete = Vec::new();
-        let mut to_add = Vec::new();
-
-        let todo = kv.list().execute().await.unwrap();
-        done = todo.list_complete;
-
-        let mut keys = todo.keys;
-        keys.retain(|key| key.name != "users");
-        for key in keys.as_slice() {
-            match key.name {
-                ref name if name.starts_with("DELETE") => {
-                    let uid = name.as_str().split_once(' ').unwrap().1;
-                    to_delete.push(uid.to_owned());
-                }
-                ref name if name.starts_with("ADD") => {
-                    let user = name.as_str().split_once(' ').unwrap().1;
-                    to_add.push(user.to_owned());
-                }
-                ref name => {
-                    console_log!("Ignoring key: {}!", name);
-                }
-            }
-        }
-        for user in to_add.as_slice() {
-            users.push(serde_json::from_str::<BotUser>(user).unwrap());
-        }
-        users.retain(|user| !to_delete.contains(&user.uid));
-        for key in keys {
-            match kv.delete(&key.name).await {
-                Ok(_) => console_log!("Removed key: {}", &key.name),
-                Err(err) => console_error!("Couldn't remove user {}: {}", &key.name, err),
-            };
-        }
-        match kv.put("users", &users) {
-            Ok(task) => match task.execute().await {
-                Ok(_) => console_log!("Updated users!"),
-                Err(err) => console_error!("Couldn't update users {}", err),
-            },
-            Err(err) => console_error!("Couldn't update users: {}", err),
-        }
     }
 }

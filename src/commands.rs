@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::from_str;
 use worker::{console_debug, console_error, console_log, kv::KvStore, Env, Result};
 
 use crate::interaction::{CommandName, CommandType, OptionType};
@@ -10,7 +11,7 @@ pub async fn update_commands(kv: &KvStore, env: &Env, client: &mut DiscordAPICli
     }
 
     if let Ok(Some(name)) = kv.get("UNREGISTER").text().await {
-        if let Ok(name) = serde_json::from_str(&name) {
+        if let Ok(name) = from_str(&name) {
             ApplicationCommand::by_name(name).delete(client).await;
         }
     }

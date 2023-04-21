@@ -1,6 +1,6 @@
 use commands::update_commands;
-use message::{prompt_users, registered_users, update_users};
 use reqwest::{header, Client, RequestBuilder};
+use serde_json::to_string_pretty;
 use worker::*;
 
 mod bot;
@@ -8,7 +8,7 @@ mod commands;
 mod embed;
 mod error;
 mod interaction;
-mod message;
+mod users;
 mod utils;
 mod verification;
 
@@ -33,10 +33,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
 
             match app.handle_request().await {
                 Ok(result) => {
-                    console_log!(
-                        "Response : {}",
-                        serde_json::to_string_pretty(&result).unwrap()
-                    );
+                    console_log!("Response : {}", to_string_pretty(&result).unwrap());
                     Response::from_json(&result)
                 }
                 Err(httperr) => {
@@ -54,8 +51,8 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     let users_kv = env
         .kv("grateful_users")
         .expect("Worker should have access to grateful_users binding");
-    let mut users = registered_users(&users_kv).await;
-    update_users(&mut users, &users_kv).await;
+    let mut users = users::registered(&users_kv).await;
+    users::update(&mut users, &users_kv).await;
 
     let token = discord_token(&env).unwrap();
     let mut client = DiscordAPIClient::new(token);
@@ -64,7 +61,7 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     let entries_kv = env
         .kv("thankful")
         .expect("Worker should have access to thankful binding");
-    prompt_users(&users, &entries_kv, &mut client).await;
+    users::prompt(&users, &entries_kv, &mut client).await;
 }
 
 pub struct DiscordAPIClient {

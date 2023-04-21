@@ -2,6 +2,7 @@ use crate::error::Error;
 use crate::interaction::{Interaction, InteractionResponse};
 use crate::verification::verify_signature;
 use http::HttpError;
+use serde_json::{from_str, to_string_pretty};
 use worker::{console_log, Request, RouteContext};
 
 mod http;
@@ -49,8 +50,8 @@ impl App {
 
         console_log!("Request body : {}", body);
 
-        let interaction = serde_json::from_str::<Interaction>(&body).map_err(Error::JsonFailed)?;
-        console_log! {"Request parsed : {}", serde_json::to_string_pretty(&interaction).unwrap()};
+        let interaction = from_str::<Interaction>(&body).map_err(Error::JsonFailed)?;
+        console_log! {"Request parsed : {}", to_string_pretty(&interaction).unwrap()};
         let response = interaction.perform(&mut self.ctx).await?;
 
         Ok(response)
