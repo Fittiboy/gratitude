@@ -1,7 +1,7 @@
 use worker::{console_error, console_log, kv::KvStore, Env};
 
 use crate::error::Error;
-use crate::{discord_token, message, DiscordAPIClient};
+use crate::{discord_token, message::BotUser, DiscordAPIClient};
 
 pub mod data_types;
 pub use data_types::*;
@@ -91,7 +91,7 @@ impl Interaction {
                 }
             }
         };
-        let users = match users_kv.get("users").json::<Vec<message::User>>().await {
+        let users = match users_kv.get("users").json::<Vec<BotUser>>().await {
             Ok(Some(users)) => users,
             Ok(None) => {
                 console_error!("User list unexpectedly empty!");
@@ -102,7 +102,7 @@ impl Interaction {
                 return InteractionResponse::error();
             }
         };
-        let user = message::User {
+        let user = BotUser {
             uid: user_id.clone(),
             channel_id: channel_id.clone(),
         };
@@ -110,7 +110,7 @@ impl Interaction {
         let delete_key = format!("DELETE {}", user_id);
 
         match self.data.as_ref().expect("only pings have no data") {
-            InteractionData::ApplicationCommandData(data) => match data.name {
+            InteractionData::ApplicationCommand(data) => match data.name {
                 CommandName::Start => {
                     self.handle_start(
                         client, users_kv, user_id, channel_id, add_key, delete_key, users,
@@ -140,7 +140,7 @@ impl Interaction {
         channel_id: String,
         add_key: String,
         delete_key: String,
-        users: Vec<message::User>,
+        users: Vec<BotUser>,
     ) -> InteractionResponse {
         console_log!("Handling start!");
         if kv.get(&delete_key).text().await.unwrap().is_some() {
@@ -148,15 +148,13 @@ impl Interaction {
                 console_error!("Couldn't remove delete key from kv: {}", err);
                 return InteractionResponse::error();
             }
-        } else if users.iter().find(|user| user.uid == user_id).is_some()
+        } else if users.iter().any(|user| user.uid == user_id)
             || kv.get(&add_key).text().await.unwrap().is_some()
         {
             return InteractionResponse::already_active();
-        } else {
-            if let Err(err) = kv.put(&add_key, "FOOP").unwrap().execute().await {
-                console_error!("Couldn't add user to list: {}", err);
-                return InteractionResponse::error();
-            }
+        } else if let Err(err) = kv.put(&add_key, "FOOP").unwrap().execute().await {
+            console_error!("Couldn't add user to list: {}", err);
+            return InteractionResponse::error();
         }
         let payload = Message::welcome();
         let client = client
@@ -179,7 +177,7 @@ impl Interaction {
         channel_id: String,
         add_key: String,
         delete_key: String,
-        mut users: Vec<message::User>,
+        mut users: Vec<BotUser>,
     ) -> InteractionResponse {
         console_log!("Handling stop!");
         if kv.get(&add_key).text().await.unwrap().is_some() {
@@ -187,7 +185,7 @@ impl Interaction {
                 console_error!("Couldn't remove delete key from kv: {}", err);
                 return InteractionResponse::error();
             }
-        } else if users.iter().find(|user| user.uid == user_id).is_none()
+        } else if !users.iter().any(|user| user.uid == user_id)
             || kv.get(&delete_key).text().await.unwrap().is_some()
         {
             return InteractionResponse::not_active();
@@ -195,18 +193,16 @@ impl Interaction {
             let original_length = users.len();
             users.retain(|user| user.uid != user_id);
             let length_after = users.len();
-            if !(original_length - 1 == length_after) {
+            if original_length - 1 != length_after {
                 console_error!(
                     "Length after removing not one less. Old: {}, New: {}",
                     original_length,
                     length_after
                 );
                 return InteractionResponse::error();
-            } else {
-                if let Err(err) = kv.put(&delete_key, "POOF").unwrap().execute().await {
-                    console_error!("Couldn't remove user from list: {}", err);
-                    return InteractionResponse::error();
-                }
+            } else if let Err(err) = kv.put(&delete_key, "POOF").unwrap().execute().await {
+                console_error!("Couldn't remove user from list: {}", err);
+                return InteractionResponse::error();
             }
         }
 
@@ -252,7 +248,7 @@ impl Interaction {
     }
 
     fn handle_component(&self) -> InteractionResponse {
-        let InteractionData::ComponentInteractionData(component) = &self
+        let InteractionData::Component(component) = &self
             .data
             .as_ref()
             .expect("Component data should always be part of the interaction") else {
@@ -309,15 +305,15 @@ impl Interaction {
         match self.r#type {
             InteractionType::ModalSubmit => {
                 let action_row = self.modal_action_row();
-                let action_row = action_row.components.iter().next().unwrap();
+                let action_row = action_row.components.first().unwrap();
                 let Component::TextInputSubmit(TextInputSubmit { value, .. }) =
-                    action_row.components.iter().next().unwrap() else {
+                    action_row.components.first().unwrap() else {
                         unreachable!("Modals support only text inputs");
                     };
                 value.to_owned()
             }
             InteractionType::ApplicationCommand => match self.data.as_ref().unwrap() {
-                InteractionData::ApplicationCommandData(data) => {
+                InteractionData::ApplicationCommand(data) => {
                     let OptionData { value, .. } = data.options.as_ref().unwrap().first().unwrap();
                     let OptionValue::String(ref value) = value.as_ref().unwrap() else { unreachable!("Value guaranteed by Discord") };
                     value.to_owned()
@@ -336,7 +332,7 @@ impl Interaction {
                 None => unreachable!("There should always be a member or a user!"),
             },
         };
-        let mut entries = self.get_entries(&thankful_kv, &id).await;
+        let mut entries = self.get_entries(&thankful_kv, id).await;
         entries.push(entry.to_string());
         thankful_kv
             .put(id, entries)
@@ -346,7 +342,7 @@ impl Interaction {
             .expect("should be able to serialize entries");
     }
 
-    async fn get_entries(&self, kv: &KvStore, id: &String) -> Vec<String> {
+    async fn get_entries(&self, kv: &KvStore, id: &str) -> Vec<String> {
         match kv.get(id).text().await {
             Ok(Some(text)) => serde_json::from_str(&text).unwrap(),
             Ok(None) => Vec::new(),
@@ -363,7 +359,7 @@ impl Interaction {
             .as_ref()
             .expect("Modal interactions always have data")
         {
-            InteractionData::ModalInteractionData(ref data) => data.clone(),
+            InteractionData::Modal(ref data) => data.clone(),
             _ => unreachable!("Modal type is guaranteed at this point"),
         }
     }
@@ -394,15 +390,14 @@ impl Interaction {
 
     fn prepare_button_disable_payload(payload: &mut MessageEdit) {
         let components = &mut payload.components;
-        match components
+        if let Component::Button(Button { disabled, .. }) = components
             .first_mut()
             .unwrap()
             .components
             .first_mut()
             .unwrap()
         {
-            Component::Button(Button { disabled, .. }) => *disabled = Some(true),
-            _ => {}
+            *disabled = Some(true)
         }
     }
 
@@ -592,18 +587,6 @@ impl ActionRow {
         ActionRow {
             r#type: ComponentType::ActionRow,
             components: vec![Component::TextInput(TextInput::new())],
-        }
-    }
-}
-
-impl Default for Message {
-    fn default() -> Self {
-        Message {
-            id: None,
-            channel_id: None,
-            content: None,
-            flags: None,
-            components: None,
         }
     }
 }

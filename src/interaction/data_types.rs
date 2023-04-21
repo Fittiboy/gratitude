@@ -27,9 +27,9 @@ pub enum InteractionType {
 #[derive(Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum InteractionData {
-    ComponentInteractionData(MessageComponentData),
-    ModalInteractionData(ModalSubmitData),
-    ApplicationCommandData(ApplicationCommandData),
+    Component(MessageComponentData),
+    Modal(ModalSubmitData),
+    ApplicationCommand(ApplicationCommandData),
 }
 
 #[derive(Deserialize, Serialize)]
@@ -39,6 +39,7 @@ pub struct MessageComponentData {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[allow(clippy::enum_variant_names)]
 pub enum CustomId {
     #[serde(rename = "grateful_button")]
     GratefulButton,
@@ -216,7 +217,7 @@ pub struct Modal {
     pub components: Vec<ActionRow>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Message {
     pub id: Option<String>,
     pub channel_id: Option<String>,
