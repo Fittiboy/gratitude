@@ -66,16 +66,18 @@ impl App {
             .map_err(Error::JsonFailed)?
             .r#type
         {
-            InteractionType::Ping => Ok(Interaction::<PingData>::from_str(&body)?.handle().await),
-            InteractionType::ApplicationCommand => {
-                Ok(Interaction::<ApplicationCommandData>::from_str(&body)?
-                    .handle(&mut client, users_kv, thankful_kv)
-                    .await)
-            }
+            InteractionType::Ping => Ok(PingInteraction::from_str(&body)?.handle().await),
+            InteractionType::ApplicationCommand => Ok(CommandInteraction::from_str(&body)?
+                .handle(&mut client, users_kv, thankful_kv)
+                .await),
             InteractionType::MessageComponent => {
-                Ok(Interaction::<MessageComponentData>::from_str(&body)?.handle())
+                match ComponentIdentifier::from_str(&body)?.custom_id {
+                    ComponentId::GratefulButton => {
+                        return Ok(ButtonInteraction::from_str(&body)?.handle_grateful());
+                    }
+                }
             }
-            InteractionType::ModalSubmit => Ok(Interaction::<ModalSubmitData>::from_str(&body)?
+            InteractionType::ModalSubmit => Ok(ModalInteraction::from_str(&body)?
                 .handle(thankful_kv, &mut client)
                 .await),
         }

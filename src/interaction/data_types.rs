@@ -2,6 +2,11 @@ use crate::error::Error;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
+pub type PingInteraction = Interaction<PingData>;
+pub type CommandInteraction = Interaction<ApplicationCommandData>;
+pub type ButtonInteraction = Interaction<MessageComponentData<Button>>;
+pub type ModalInteraction = Interaction<ModalSubmitData>;
+
 #[derive(Deserialize, Serialize)]
 pub struct InteractionIdentifier {
     pub r#type: InteractionType,
@@ -9,23 +14,13 @@ pub struct InteractionIdentifier {
 
 #[derive(Deserialize, Serialize)]
 pub struct Interaction<T> {
-    pub r#type: InteractionType,
     pub data: T,
     pub token: String,
     pub guild_id: Option<String>,
     pub channel_id: Option<String>,
-    pub message: Option<Message>,
+    pub message: Option<MessageResponse>,
     pub member: Option<Member>,
     pub user: Option<User>,
-}
-
-impl<'a, T> Interaction<T>
-where
-    T: Deserialize<'a> + Serialize,
-{
-    pub fn from_str(string: &'a str) -> Result<Self, Error> {
-        serde_json::from_str::<Self>(string).map_err(Error::JsonFailed)
-    }
 }
 
 #[derive(Deserialize_repr, Serialize_repr)]
@@ -41,9 +36,34 @@ pub enum InteractionType {
 pub struct PingData;
 
 #[derive(Deserialize, Serialize)]
-pub struct MessageComponentData {
-    pub custom_id: CustomId,
-    pub component_type: ComponentType,
+pub struct ComponentIdentifier {
+    pub custom_id: ComponentId,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct MessageComponentData<T> {
+    pub component_type: T,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[allow(clippy::enum_variant_names)]
+pub enum ComponentId {
+    #[serde(rename = "grateful_button")]
+    GratefulButton,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[allow(clippy::enum_variant_names)]
+pub enum ModalId {
+    #[serde(rename = "grateful_modal")]
+    GratefulModal,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[allow(clippy::enum_variant_names)]
+pub enum TextInputId {
+    #[serde(rename = "grateful_input")]
+    GratefulInput,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -55,6 +75,12 @@ pub enum CustomId {
     GratefulInput,
     #[serde(rename = "grateful_modal")]
     GratefulModal,
+}
+
+#[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
+#[repr(u8)]
+pub enum InteractionComponentType {
+    Button = 2,
 }
 
 #[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
@@ -216,19 +242,19 @@ pub enum InteractionResponseType {
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum InteractionResponseData {
-    Modal(Modal),
-    Message(Message),
+    Modal(ModalResponse),
+    Message(MessageResponse),
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-pub struct Modal {
+pub struct ModalResponse {
     pub custom_id: CustomId,
     pub title: String,
     pub components: Vec<ActionRow>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
-pub struct Message {
+pub struct MessageResponse {
     pub id: Option<String>,
     pub channel_id: Option<String>,
     pub content: Option<String>,
@@ -237,7 +263,7 @@ pub struct Message {
 }
 
 #[derive(Debug, Serialize)]
-pub struct MessageEdit {
+pub struct MessageEditResponse {
     pub components: Vec<ActionRow>,
 }
 
@@ -263,4 +289,17 @@ pub enum ChannelType {
     GuildStageVoice = 13,
     GuildDirectory = 14,
     GuildForum = 15,
+}
+
+pub trait MarkDeserialize<'a>
+where
+    Self: Sized,
+{
+    fn from_str(string: &'a str) -> Result<Self, Error>;
+}
+
+impl<'a, T: Deserialize<'a>> MarkDeserialize<'a> for T {
+    fn from_str(string: &'a str) -> Result<Self, Error> {
+        serde_json::from_str::<Self>(string).map_err(Error::JsonFailed)
+    }
 }

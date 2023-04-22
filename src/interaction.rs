@@ -143,7 +143,7 @@ impl Interaction<ApplicationCommandData> {
             console_error!("Couldn't add user to list: {}", err);
             return InteractionResponse::error();
         }
-        let payload = Message::welcome();
+        let payload = MessageResponse::welcome();
         let client = client
             .post(&format!("channels/{}/messages", channel_id))
             .json(&payload);
@@ -193,7 +193,7 @@ impl Interaction<ApplicationCommandData> {
             }
         }
 
-        let payload = Message::goodbye();
+        let payload = MessageResponse::goodbye();
         let client = client
             .post(&format!("channels/{}/messages", channel_id))
             .json(&payload);
@@ -216,7 +216,7 @@ impl Interaction<ApplicationCommandData> {
         console_log!("Handling entry");
         let entry = self.entry();
         self.add_entry(thankful_kv, &entry).await;
-        let payload = Message {
+        let payload = MessageResponse {
             id: None,
             channel_id: None,
             content: Some(format!("__**You added the following entry:**__\n{}", entry)),
@@ -241,24 +241,8 @@ impl Interaction<ApplicationCommandData> {
     }
 }
 
-impl Interaction<MessageComponentData> {
-    pub fn handle(&self) -> InteractionResponse {
-        match self.data.component_type {
-            ComponentType::Button => self.handle_button(&self.data.custom_id),
-            _ => unimplemented!(
-                "There are currently not other component types in use in this context"
-            ),
-        }
-    }
-
-    fn handle_button(&self, custom_id: &CustomId) -> InteractionResponse {
-        match custom_id {
-            CustomId::GratefulButton => self.handle_grateful_button(),
-            _ => unreachable!("All button IDs are covered!"),
-        }
-    }
-
-    fn handle_grateful_button(&self) -> InteractionResponse {
+impl ButtonInteraction {
+    pub fn handle_grateful(&self) -> InteractionResponse {
         let name = self
             .user
             .clone()
@@ -267,7 +251,9 @@ impl Interaction<MessageComponentData> {
         console_log!("Handling button!");
         InteractionResponse {
             r#type: InteractionResponseType::Modal,
-            data: Some(InteractionResponseData::Modal(Modal::with_name(name))),
+            data: Some(InteractionResponseData::Modal(ModalResponse::with_name(
+                name,
+            ))),
         }
     }
 }
@@ -284,7 +270,7 @@ impl Interaction<ModalSubmitData> {
 
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(Message {
+            data: Some(InteractionResponseData::Message(MessageResponse {
                 id: None,
                 channel_id: None,
                 content: Some(format!("**You added the following entry:**\n{}", entry)),
@@ -312,7 +298,7 @@ impl Interaction<ModalSubmitData> {
             .await;
     }
 
-    fn id_and_payload(&self) -> (String, MessageEdit) {
+    fn id_and_payload(&self) -> (String, MessageEditResponse) {
         let message = self.message.as_ref().unwrap();
         let message_id = message.id.clone().unwrap();
         let payload = message
@@ -321,13 +307,13 @@ impl Interaction<ModalSubmitData> {
             .expect("Messages with a modal always have at least one component");
         (
             message_id,
-            MessageEdit {
+            MessageEditResponse {
                 components: payload,
             },
         )
     }
 
-    fn prepare_button_disable_payload(payload: &mut MessageEdit) {
+    fn prepare_button_disable_payload(payload: &mut MessageEditResponse) {
         let components = &mut payload.components;
         if let Component::Button(Button { disabled, .. }) = components
             .first_mut()
@@ -344,7 +330,7 @@ impl Interaction<ModalSubmitData> {
         &self,
         message_id: String,
         client: &mut discord::Client,
-        payload: MessageEdit,
+        payload: MessageEditResponse,
     ) {
         let channel_id = self.channel_id.clone().unwrap();
         if let Err(error) = client
@@ -396,56 +382,64 @@ impl InteractionResponse {
     fn not_implemented() -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(Message::not_implemented())),
+            data: Some(InteractionResponseData::Message(
+                MessageResponse::not_implemented(),
+            )),
         }
     }
 
     fn help() -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(Message::help())),
+            data: Some(InteractionResponseData::Message(MessageResponse::help())),
         }
     }
 
     fn success() -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(Message::success())),
+            data: Some(InteractionResponseData::Message(MessageResponse::success())),
         }
     }
 
     fn error() -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(Message::error())),
+            data: Some(InteractionResponseData::Message(MessageResponse::error())),
         }
     }
 
     fn dms_closed() -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(Message::dms_closed())),
+            data: Some(InteractionResponseData::Message(
+                MessageResponse::dms_closed(),
+            )),
         }
     }
 
     fn already_active() -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(Message::already_active())),
+            data: Some(InteractionResponseData::Message(
+                MessageResponse::already_active(),
+            )),
         }
     }
 
     fn not_active() -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(Message::not_active())),
+            data: Some(InteractionResponseData::Message(
+                MessageResponse::not_active(),
+            )),
         }
     }
 }
 
-impl Modal {
+impl ModalResponse {
     pub fn with_name(name: String) -> Self {
-        Modal {
+        ModalResponse {
             custom_id: CustomId::GratefulModal,
             title: format!("{}'s Gratitude Journal", name),
             components: vec![ActionRow::with_text_entry()],
@@ -469,9 +463,9 @@ impl TextInput {
     }
 }
 
-impl Message {
+impl MessageResponse {
     pub fn not_implemented() -> Self {
-        Message {
+        MessageResponse {
             content: Some("This command is not yet implemented! Coming soon!".into()),
             flags: Some(1 << 6),
             ..Default::default()
@@ -479,7 +473,7 @@ impl Message {
     }
 
     pub fn help() -> Self {
-        Message {
+        MessageResponse {
             content: Some(
                 concat!(
                     "__**Welcome to Gratitude Bot!**__\n",
@@ -509,7 +503,7 @@ impl Message {
             )
             .to_string(),
         );
-        Message {
+        MessageResponse {
             content,
             components: Some(vec![ActionRow::with_entry_button()]),
             ..Default::default()
@@ -525,7 +519,7 @@ impl Message {
             )
             .into(),
         );
-        Message {
+        MessageResponse {
             content,
             ..Default::default()
         }
@@ -539,7 +533,7 @@ impl Message {
             )),
             None => Some("Hope you're having a great day!".into()),
         };
-        Message {
+        MessageResponse {
             content,
             components: Some(vec![ActionRow::with_entry_button()]),
             ..Default::default()
@@ -547,7 +541,7 @@ impl Message {
     }
 
     pub fn success() -> Self {
-        Message {
+        MessageResponse {
             content: Some(
                 "**It looks like that worked! 🥳** If it didn't do what you expected, contact Fitti#6969"
                     .to_string(),
@@ -558,7 +552,7 @@ impl Message {
     }
 
     pub fn error() -> Self {
-        Message {
+        MessageResponse {
             content: Some(
                 "Oh no! It looks like something went wrong!\nAsk Fitti#6969 for help!".into(),
             ),
@@ -568,7 +562,7 @@ impl Message {
     }
 
     pub fn dms_closed() -> Self {
-        Message {
+        MessageResponse {
             content: Some(format!(
                 "It looks like the bot can't DM you! Check your privacy settings: {}",
                 "https://support.discord.com/hc/en-us/articles/217916488-Blocking-Privacy-Settings",
@@ -579,7 +573,7 @@ impl Message {
     }
 
     pub fn already_active() -> Self {
-        Message {
+        MessageResponse {
             content: Some(
                 concat!(
                     "Looks like you're already an active user! ",
@@ -596,7 +590,7 @@ impl Message {
     }
 
     pub fn not_active() -> Self {
-        Message {
+        MessageResponse {
             content: Some(
                 concat!(
                     "Looks like you're not an active user! ",
