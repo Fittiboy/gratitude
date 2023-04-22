@@ -486,7 +486,9 @@ impl MessageResponse {
                     "brain will change to be more aware of the nice things in life, help ",
                     "you appreciate what you have right now!\n\nYou can use **/start** to ",
                     "sign up for those reminders, **/stop** to stop receiving them, and ",
-                    "**/entry** to add something to the journal at any point!"
+                    "**/entry** to add something to the journal at any point!\n\n",
+                    "*The bot is open source, and you can view (and copy!) the code ",
+                    "right here: <https://github.com/Fittiboy/gratitude>!"
                 )
                 .to_string(),
             ),
@@ -499,7 +501,10 @@ impl MessageResponse {
         let content = Some(
             concat!(
                 "**Hi there! Thank you for deciding to use Gratitude Bot! 🥳**\n",
-                "Click the button below to make a quick journal entry right now!"
+                "The bot will send you reminders, every few days or so, to ",
+                "think about someting you are grateful for, and ask you to add it ",
+                "to your journal! You can use /stop at any time to stop these reminders",
+                "\n\n👇 Click the button below to make an entry into your journal right now!"
             )
             .to_string(),
         );
