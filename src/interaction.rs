@@ -488,7 +488,7 @@ impl MessageResponse {
                     "sign up for those reminders, **/stop** to stop receiving them, and ",
                     "**/entry** to add something to the journal at any point!\n\n",
                     "*The bot is open source, and you can view (and copy!) the code ",
-                    "right here: <https://github.com/Fittiboy/gratitude>!"
+                    "right here: <https://github.com/Fittiboy/gratitude>!*"
                 )
                 .to_string(),
             ),
