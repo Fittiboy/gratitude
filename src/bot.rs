@@ -1,8 +1,9 @@
+use crate::discord;
 use crate::error::Error;
-use crate::interaction::{Interaction, InteractionResponse};
+use crate::interaction::data_types::*;
 use crate::verification::verify_signature;
 use http::HttpError;
-use serde_json::{from_str, to_string_pretty};
+use serde_json::from_str;
 use worker::{console_log, Request, RouteContext};
 
 mod http;
@@ -47,13 +48,36 @@ impl App {
 
     pub async fn handle_request(&mut self) -> Result<InteractionResponse, HttpError> {
         let body = self.validate_sig().await?;
+        let thankful_kv = self
+            .ctx
+            .env
+            .kv("thankful")
+            .expect("Worker should have access to thankful binding");
+        let mut client = discord::Client::new(discord::token(&self.ctx.env).unwrap());
+        let users_kv = self
+            .ctx
+            .env
+            .kv("grateful_users")
+            .expect("Worker should have access to grateful_users binding");
 
         console_log!("Request body : {}", body);
 
-        let interaction = from_str::<Interaction>(&body).map_err(Error::JsonFailed)?;
-        console_log! {"Request parsed : {}", to_string_pretty(&interaction).unwrap()};
-        let response = interaction.perform(&mut self.ctx).await?;
-
-        Ok(response)
+        match from_str::<InteractionIdentifier>(&body)
+            .map_err(Error::JsonFailed)?
+            .r#type
+        {
+            InteractionType::Ping => Ok(Interaction::<PingData>::from_str(&body)?.handle().await),
+            InteractionType::ApplicationCommand => {
+                Ok(Interaction::<ApplicationCommandData>::from_str(&body)?
+                    .handle(&mut client, users_kv, thankful_kv)
+                    .await)
+            }
+            InteractionType::MessageComponent => {
+                Ok(Interaction::<MessageComponentData>::from_str(&body)?.handle())
+            }
+            InteractionType::ModalSubmit => Ok(Interaction::<ModalSubmitData>::from_str(&body)?
+                .handle(thankful_kv, &mut client)
+                .await),
+        }
     }
 }

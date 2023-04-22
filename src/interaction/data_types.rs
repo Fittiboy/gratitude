@@ -1,18 +1,31 @@
-use serde::Deserialize;
-
-use serde::Serialize;
+use crate::error::Error;
+use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 #[derive(Deserialize, Serialize)]
-pub struct Interaction {
+pub struct InteractionIdentifier {
     pub r#type: InteractionType,
-    pub data: Option<InteractionData>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct Interaction<T> {
+    pub r#type: InteractionType,
+    pub data: T,
     pub token: String,
     pub guild_id: Option<String>,
     pub channel_id: Option<String>,
     pub message: Option<Message>,
     pub member: Option<Member>,
     pub user: Option<User>,
+}
+
+impl<'a, T> Interaction<T>
+where
+    T: Deserialize<'a> + Serialize,
+{
+    pub fn from_str(string: &'a str) -> Result<Self, Error> {
+        serde_json::from_str::<Self>(string).map_err(Error::JsonFailed)
+    }
 }
 
 #[derive(Deserialize_repr, Serialize_repr)]
@@ -25,12 +38,7 @@ pub enum InteractionType {
 }
 
 #[derive(Deserialize, Serialize)]
-#[serde(untagged)]
-pub enum InteractionData {
-    Component(MessageComponentData),
-    Modal(ModalSubmitData),
-    ApplicationCommand(ApplicationCommandData),
-}
+pub struct PingData;
 
 #[derive(Deserialize, Serialize)]
 pub struct MessageComponentData {

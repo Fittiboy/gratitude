@@ -1,47 +1,23 @@
 use serde_json::{from_str, to_string};
-use worker::{console_error, console_log, kv::KvStore, Env};
+use worker::{console_error, console_log, kv::KvStore};
 
 use crate::discord;
-use crate::error::Error;
 use crate::users::BotUser;
 
 pub mod data_types;
 pub use data_types::*;
 
-impl Interaction {
-    pub async fn perform(
-        &self,
-        ctx: &mut worker::RouteContext<()>,
-    ) -> Result<InteractionResponse, Error> {
-        let thankful_kv = ctx
-            .env
-            .kv("thankful")
-            .expect("Worker should have access to thankful binding");
-        match self.r#type {
-            InteractionType::Ping => Ok(self.handle_ping()),
-            InteractionType::ApplicationCommand => {
-                let mut client = discord::Client::new(discord::token(&ctx.env).unwrap());
-                let users_kv = ctx
-                    .env
-                    .kv("grateful_users")
-                    .expect("Worker should have access to grateful_users binding");
-                Ok(self
-                    .handle_command(&mut client, users_kv, thankful_kv)
-                    .await)
-            }
-            InteractionType::MessageComponent => Ok(self.handle_component()),
-            InteractionType::ModalSubmit => Ok(self.handle_modal(&ctx.env, thankful_kv).await),
-        }
-    }
-
-    fn handle_ping(&self) -> InteractionResponse {
+impl Interaction<PingData> {
+    pub async fn handle(&self) -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::Pong,
             data: None,
         }
     }
+}
 
-    pub async fn handle_command(
+impl Interaction<ApplicationCommandData> {
+    pub async fn handle(
         &self,
         client: &mut discord::Client,
         users_kv: KvStore,
@@ -72,27 +48,24 @@ impl Interaction {
         let add_key = format!("ADD {}", to_string(&user).unwrap());
         let delete_key = format!("DELETE {}", user_id);
 
-        match self.data.as_ref().expect("only pings have no data") {
-            InteractionData::ApplicationCommand(data) => match data.name {
-                CommandName::Start => {
-                    self.handle_start(
-                        client, users_kv, user_id, channel_id, add_key, delete_key, users,
-                    )
+        match self.data.name {
+            CommandName::Start => {
+                self.handle_start(
+                    client, users_kv, user_id, channel_id, add_key, delete_key, users,
+                )
+                .await
+            }
+            CommandName::Stop => {
+                self.handle_stop(
+                    client, users_kv, user_id, channel_id, add_key, delete_key, users,
+                )
+                .await
+            }
+            CommandName::Entry => {
+                self.handle_entry(client, channel_id, user_id, thankful_kv)
                     .await
-                }
-                CommandName::Stop => {
-                    self.handle_stop(
-                        client, users_kv, user_id, channel_id, add_key, delete_key, users,
-                    )
-                    .await
-                }
-                CommandName::Entry => {
-                    self.handle_entry(client, channel_id, user_id, thankful_kv)
-                        .await
-                }
-                CommandName::Help => InteractionResponse::help(),
-            },
-            _ => unreachable!("Commands are always commands (shocking, I know!)"),
+            }
+            CommandName::Help => InteractionResponse::help(),
         }
     }
 
@@ -261,16 +234,17 @@ impl Interaction {
         InteractionResponse::success()
     }
 
-    fn handle_component(&self) -> InteractionResponse {
-        let InteractionData::Component(component) = &self
-            .data
-            .as_ref()
-            .expect("Component data should always be part of the interaction") else {
-                console_error!("handle_component should only ever receive component data");
-                unreachable!();
-            };
-        match component.component_type {
-            ComponentType::Button => self.handle_button(&component.custom_id),
+    fn entry(&self) -> String {
+        let OptionData { value, .. } = self.data.options.as_ref().unwrap().first().unwrap();
+        let OptionValue::String(ref value) = value.as_ref().unwrap() else { unreachable!("Value guaranteed by Discord") };
+        value.to_owned()
+    }
+}
+
+impl Interaction<MessageComponentData> {
+    pub fn handle(&self) -> InteractionResponse {
+        match self.data.component_type {
+            ComponentType::Button => self.handle_button(&self.data.custom_id),
             _ => unimplemented!(
                 "There are currently not other component types in use in this context"
             ),
@@ -296,12 +270,17 @@ impl Interaction {
             data: Some(InteractionResponseData::Modal(Modal::with_name(name))),
         }
     }
+}
 
-    async fn handle_modal(&self, env: &Env, thankful_kv: KvStore) -> InteractionResponse {
+impl Interaction<ModalSubmitData> {
+    pub async fn handle(
+        &self,
+        thankful_kv: KvStore,
+        client: &mut discord::Client,
+    ) -> InteractionResponse {
         let entry = self.entry();
         self.add_entry(thankful_kv, &entry).await;
-        let token = discord::token(env).unwrap();
-        self.disable_button(token).await;
+        self.disable_button(client).await;
 
         InteractionResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
@@ -316,28 +295,72 @@ impl Interaction {
     }
 
     fn entry(&self) -> String {
-        match self.r#type {
-            InteractionType::ModalSubmit => {
-                let action_row = self.modal_action_row();
-                let action_row = action_row.components.first().unwrap();
-                let Component::TextInputSubmit(TextInputSubmit { value, .. }) =
-                    action_row.components.first().unwrap() else {
-                        unreachable!("Modals support only text inputs");
-                    };
-                value.to_owned()
-            }
-            InteractionType::ApplicationCommand => match self.data.as_ref().unwrap() {
-                InteractionData::ApplicationCommand(data) => {
-                    let OptionData { value, .. } = data.options.as_ref().unwrap().first().unwrap();
-                    let OptionValue::String(ref value) = value.as_ref().unwrap() else { unreachable!("Value guaranteed by Discord") };
-                    value.to_owned()
-                }
-                _ => unreachable!("We know it's a command now!"),
+        let action_row = self.data.components.first().unwrap();
+        let Component::TextInputSubmit(TextInputSubmit { value, .. }) =
+            action_row.components.first().unwrap() else {
+                unreachable!("Modals support only text inputs");
+            };
+        value.to_owned()
+    }
+
+    async fn disable_button(&self, client: &mut discord::Client) {
+        let (message_id, mut payload) = self.id_and_payload();
+        Self::prepare_button_disable_payload(&mut payload);
+        console_log!("Payload to disable button: {:#?}", payload);
+
+        self.submit_disable_button_request(message_id, client, payload)
+            .await;
+    }
+
+    fn id_and_payload(&self) -> (String, MessageEdit) {
+        let message = self.message.as_ref().unwrap();
+        let message_id = message.id.clone().unwrap();
+        let payload = message
+            .components
+            .clone()
+            .expect("Messages with a modal always have at least one component");
+        (
+            message_id,
+            MessageEdit {
+                components: payload,
             },
-            _ => unreachable!("No entries anywhere else!"),
+        )
+    }
+
+    fn prepare_button_disable_payload(payload: &mut MessageEdit) {
+        let components = &mut payload.components;
+        if let Component::Button(Button { disabled, .. }) = components
+            .first_mut()
+            .unwrap()
+            .components
+            .first_mut()
+            .unwrap()
+        {
+            *disabled = Some(true)
         }
     }
 
+    async fn submit_disable_button_request(
+        &self,
+        message_id: String,
+        client: &mut discord::Client,
+        payload: MessageEdit,
+    ) {
+        let channel_id = self.channel_id.clone().unwrap();
+        if let Err(error) = client
+            .patch(&format!("channels/{}/messages/{}", channel_id, message_id,))
+            .json(&payload)
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+        {
+            console_error!("Error disabling button: {}", error);
+        }
+    }
+}
+
+impl<T> Interaction<T> {
     async fn add_entry(&self, thankful_kv: KvStore, entry: &str) {
         let id = match self.user.as_ref() {
             Some(User { id, .. }) => id,
@@ -364,74 +387,6 @@ impl Interaction {
                 console_error!("Couldn't get entries: {}", err);
                 panic!();
             }
-        }
-    }
-
-    fn modal_action_row(&self) -> ModalSubmitData {
-        match self
-            .data
-            .as_ref()
-            .expect("Modal interactions always have data")
-        {
-            InteractionData::Modal(ref data) => data.clone(),
-            _ => unreachable!("Modal type is guaranteed at this point"),
-        }
-    }
-
-    fn id_and_payload(&self) -> (String, MessageEdit) {
-        let message = self.message.as_ref().unwrap();
-        let message_id = message.id.clone().unwrap();
-        let payload = message
-            .components
-            .clone()
-            .expect("Messages with a modal always have at least one component");
-        (
-            message_id,
-            MessageEdit {
-                components: payload,
-            },
-        )
-    }
-
-    async fn disable_button(&self, token: String) {
-        let (message_id, mut payload) = self.id_and_payload();
-        Self::prepare_button_disable_payload(&mut payload);
-        console_log!("Payload to disable button: {:#?}", payload);
-
-        self.submit_disable_button_request(message_id, token, payload)
-            .await;
-    }
-
-    fn prepare_button_disable_payload(payload: &mut MessageEdit) {
-        let components = &mut payload.components;
-        if let Component::Button(Button { disabled, .. }) = components
-            .first_mut()
-            .unwrap()
-            .components
-            .first_mut()
-            .unwrap()
-        {
-            *disabled = Some(true)
-        }
-    }
-
-    async fn submit_disable_button_request(
-        &self,
-        message_id: String,
-        token: String,
-        payload: MessageEdit,
-    ) {
-        let channel_id = self.channel_id.clone().unwrap();
-        let client = discord::Client::new(token)
-            .patch(&format!("channels/{}/messages/{}", channel_id, message_id,));
-        if let Err(error) = client
-            .json(&payload)
-            .send()
-            .await
-            .unwrap()
-            .error_for_status()
-        {
-            console_error!("Error disabling button: {}", error);
         }
     }
 }
