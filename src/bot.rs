@@ -45,7 +45,7 @@ impl App {
         Ok(body)
     }
 
-    pub async fn handle_request(&mut self) -> Result<impl crate::interaction::Response, HttpError> {
+    pub async fn handle_request(&mut self) -> Result<String, HttpError> {
         let body = self.validate_sig().await?;
         let thankful_kv = self
             .ctx
@@ -61,21 +61,27 @@ impl App {
 
         console_log!("Request body : {}", body);
 
-        match InteractionIdentifier::from_str(&body)?.r#type {
-            InteractionType::Ping => Ok(PingInteraction::from_str(&body)?.handle().await),
-            InteractionType::ApplicationCommand => Ok(CommandInteraction::from_str(&body)?
+        let result = match InteractionIdentifier::from_str(&body)?.r#type {
+            InteractionType::Ping => PingInteraction::from_str(&body)?
+                .handle()
+                .await
+                .as_string()?,
+            InteractionType::ApplicationCommand => CommandInteraction::from_str(&body)?
                 .handle(&mut client, users_kv, thankful_kv)
-                .await),
+                .await
+                .as_string()?,
             InteractionType::MessageComponent => {
                 match ComponentIdentifier::from_str(&body)?.data.custom_id {
-                    CustomId::GratefulButton => {
-                        return Ok(ButtonInteraction::from_str(&body)?.handle_grateful());
-                    }
+                    CustomId::GratefulButton => ButtonInteraction::from_str(&body)?
+                        .handle_grateful()
+                        .as_string()?,
                 }
             }
-            InteractionType::ModalSubmit => Ok(SingleTextModalButtonInteraction::from_str(&body)?
+            InteractionType::ModalSubmit => SingleTextModalButtonInteraction::from_str(&body)?
                 .handle(thankful_kv, &mut client)
-                .await),
-        }
+                .await
+                .as_string()?,
+        };
+        Ok(result)
     }
 }

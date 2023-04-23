@@ -12,6 +12,7 @@ pub type ComponentIdentifier = Interaction<ComponentIdData, GenericMessage>;
 
 pub type NoComponent = Option<()>;
 pub type NoMessage = Option<()>;
+pub type NoResponseData = Option<()>;
 pub type NoComponentMessage = Message<NoComponent>;
 pub type SingleComponentInteraction<C> = Interaction<ComponentIdData, SingleComponentMessage<C>>;
 pub type SingleTextModalComponentInteraction<C> =
@@ -24,14 +25,15 @@ pub type SingleComponentMessage<C> = Message<[SingleComponentActionRow<C>; 1]>;
 pub type SingleComponentModalInteraction<C, C2> =
     Interaction<SingleComponentModalSubmit<C>, SingleComponentMessage<C2>>;
 
-pub type SingleTextInputModalResponse = XXInteractionResponse<SingleTextInputModalData>;
+pub type SingleTextInputModalResponse = InteractionResponse<SingleTextInputModalData>;
+pub type SimpleMessageResponse = InteractionResponse<NoComponentMessage>;
 
 pub type SingleButtonActionRow = SingleComponentActionRow<Button>;
 pub type SingleTextInputActionRow = SingleComponentActionRow<TextInput>;
 pub type SingleTextInputModalData = SingleComponentModalResponse<TextInput>;
 
-pub type SingleComponentActionRow<C> = XXActionRow<[C; 1]>;
-pub type SingleComponentModalResponse<C> = XXModalResponse<[SingleComponentActionRow<C>; 1]>;
+pub type SingleComponentActionRow<C> = ActionRow<[C; 1]>;
+pub type SingleComponentModalResponse<C> = ModalResponse<[SingleComponentActionRow<C>; 1]>;
 pub type SingleComponentModalSubmit<C> = ModalSubmitData<[SingleComponentActionRow<C>; 1]>;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -116,29 +118,9 @@ pub struct ModalSubmitData<C> {
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
-pub struct XXActionRow<C> {
+pub struct ActionRow<C> {
     pub r#type: ActionRowType,
     pub components: C,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
-pub struct ActionRow {
-    pub r#type: ActionRowType,
-    pub components: Vec<Component>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(untagged)]
-pub enum Component {
-    Button(Button),
-    TextInput(TextInput),
-    TextInputSubmit(TextInputSubmit),
-}
-
-impl Default for Component {
-    fn default() -> Self {
-        Self::Button(Default::default())
-    }
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
@@ -168,6 +150,7 @@ pub struct TextInputSubmit {
     pub value: String,
 }
 
+//TODO: Go generic with commands?
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct ApplicationCommandData {
     pub id: String,
@@ -200,6 +183,7 @@ pub enum CommandType {
     Message = 3,
 }
 
+//TODO: Go generic instead of using the wrapper OptionValue enum
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct OptionData {
     pub name: String,
@@ -264,15 +248,9 @@ pub struct User {
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
-pub struct XXInteractionResponse<D> {
+pub struct InteractionResponse<D> {
     pub r#type: InteractionResponseType,
     pub data: D,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct InteractionResponse {
-    pub r#type: InteractionResponseType,
-    pub data: Option<InteractionResponseData>,
 }
 
 #[derive(Debug, Default, Serialize_repr, Deserialize_repr)]
@@ -285,20 +263,8 @@ pub enum InteractionResponseType {
     Modal = 9,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(untagged)]
-pub enum InteractionResponseData {
-    Message(MessageResponse),
-}
-
-impl Default for InteractionResponseData {
-    fn default() -> Self {
-        Self::Message(Default::default())
-    }
-}
-
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
-pub struct XXModalResponse<C> {
+pub struct ModalResponse<C> {
     pub custom_id: ModalId,
     pub title: String,
     pub components: C,
@@ -311,25 +277,6 @@ pub struct Message<C> {
     pub content: Option<String>,
     pub flags: Option<u16>,
     pub components: C,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct MessageResponse {
-    pub id: Option<String>,
-    pub channel_id: Option<String>,
-    pub content: Option<String>,
-    pub flags: Option<u16>,
-    pub components: Option<Vec<ActionRow>>,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct ComponentEdit<C> {
-    pub components: C,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct MessageEditResponse {
-    pub components: Vec<ActionRow>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -357,9 +304,17 @@ pub enum ChannelType {
     GuildForum = 15,
 }
 
-pub trait Response: Serialize {}
-impl Response for InteractionResponse {}
-impl<T> Response for XXInteractionResponse<T> where T: Serialize {}
+pub trait Response: Serialize {
+    fn as_string(&self) -> Result<String, Error>;
+}
+impl<T> Response for InteractionResponse<T>
+where
+    T: Serialize,
+{
+    fn as_string(&self) -> Result<String, Error> {
+        serde_json::to_string(self).map_err(Error::JsonFailed)
+    }
+}
 
 pub trait MarkDeserialize<'a>
 where

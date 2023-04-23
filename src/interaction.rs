@@ -8,7 +8,7 @@ pub mod data_types;
 pub use data_types::*;
 
 impl PingInteraction {
-    pub async fn handle(&self) -> InteractionResponse {
+    pub async fn handle(&self) -> InteractionResponse<NoResponseData> {
         InteractionResponse {
             r#type: InteractionResponseType::Pong,
             data: None,
@@ -22,23 +22,23 @@ impl CommandInteraction {
         client: &mut discord::Client,
         users_kv: KvStore,
         thankful_kv: KvStore,
-    ) -> InteractionResponse {
+    ) -> SimpleMessageResponse {
         let (user_id, mut channel_id) = self.ids();
         if channel_id.is_empty() {
             channel_id = match self.dm_channel(&user_id, client).await {
                 Some(id) => id,
-                None => return InteractionResponse::error(),
+                None => return SimpleMessageResponse::error(),
             }
         };
         let users = match users_kv.get("users").json::<Vec<BotUser>>().await {
             Ok(Some(users)) => users,
             Ok(None) => {
                 console_error!("User list unexpectedly empty!");
-                return InteractionResponse::error();
+                return SimpleMessageResponse::error();
             }
             Err(err) => {
                 console_error!("Couldn't get list of users: {}", err);
-                return InteractionResponse::error();
+                return SimpleMessageResponse::error();
             }
         };
         let user = BotUser {
@@ -65,7 +65,7 @@ impl CommandInteraction {
                 self.handle_entry(client, channel_id, user_id, thankful_kv)
                     .await
             }
-            CommandName::Help => InteractionResponse::help(),
+            CommandName::Help => SimpleMessageResponse::help(),
         }
     }
 
@@ -128,20 +128,20 @@ impl CommandInteraction {
         add_key: String,
         delete_key: String,
         users: Vec<BotUser>,
-    ) -> InteractionResponse {
+    ) -> SimpleMessageResponse {
         console_log!("Handling start!");
         if kv.get(&delete_key).text().await.unwrap().is_some() {
             if let Err(err) = kv.delete(&delete_key).await {
                 console_error!("Couldn't remove delete key from kv: {}", err);
-                return InteractionResponse::error();
+                return SimpleMessageResponse::error();
             }
         } else if users.iter().any(|user| user.uid == user_id)
             || kv.get(&add_key).text().await.unwrap().is_some()
         {
-            return InteractionResponse::already_active();
+            return SimpleMessageResponse::already_active();
         } else if let Err(err) = kv.put(&add_key, "FOOP").unwrap().execute().await {
             console_error!("Couldn't add user to list: {}", err);
-            return InteractionResponse::error();
+            return SimpleMessageResponse::error();
         }
         let payload = Message::welcome();
         let client = client
@@ -149,11 +149,11 @@ impl CommandInteraction {
             .json(&payload);
         if let Err(error) = client.send().await.unwrap().error_for_status() {
             console_error!("Error sending message to user {}: {}", user_id, error);
-            return InteractionResponse::dms_closed();
+            return SimpleMessageResponse::dms_closed();
         }
         console_log!("New user: {:?}", user_id);
 
-        InteractionResponse::success()
+        SimpleMessageResponse::success()
     }
 
     async fn handle_stop(
@@ -165,17 +165,17 @@ impl CommandInteraction {
         add_key: String,
         delete_key: String,
         mut users: Vec<BotUser>,
-    ) -> InteractionResponse {
+    ) -> SimpleMessageResponse {
         console_log!("Handling stop!");
         if kv.get(&add_key).text().await.unwrap().is_some() {
             if let Err(err) = kv.delete(&add_key).await {
                 console_error!("Couldn't remove delete key from kv: {}", err);
-                return InteractionResponse::error();
+                return SimpleMessageResponse::error();
             }
         } else if !users.iter().any(|user| user.uid == user_id)
             || kv.get(&delete_key).text().await.unwrap().is_some()
         {
-            return InteractionResponse::not_active();
+            return SimpleMessageResponse::not_active();
         } else {
             let original_length = users.len();
             users.retain(|user| user.uid != user_id);
@@ -186,10 +186,10 @@ impl CommandInteraction {
                     original_length,
                     length_after
                 );
-                return InteractionResponse::error();
+                return SimpleMessageResponse::error();
             } else if let Err(err) = kv.put(&delete_key, "POOF").unwrap().execute().await {
                 console_error!("Couldn't remove user from list: {}", err);
-                return InteractionResponse::error();
+                return SimpleMessageResponse::error();
             }
         }
 
@@ -199,11 +199,11 @@ impl CommandInteraction {
             .json(&payload);
         if let Err(error) = client.send().await.unwrap().error_for_status() {
             console_error!("Error sending message to user {}: {}", user_id, error);
-            return InteractionResponse::dms_closed();
+            return SimpleMessageResponse::dms_closed();
         }
         console_log!("User removed: {:?}", user_id);
 
-        InteractionResponse::success()
+        SimpleMessageResponse::success()
     }
 
     async fn handle_entry(
@@ -212,26 +212,23 @@ impl CommandInteraction {
         channel_id: String,
         user_id: String,
         thankful_kv: KvStore,
-    ) -> InteractionResponse {
+    ) -> SimpleMessageResponse {
         console_log!("Handling entry");
         let entry = self.entry();
         self.add_entry(thankful_kv, &entry).await;
-        let payload = MessageResponse {
-            id: None,
-            channel_id: None,
+        let payload = NoComponentMessage {
             content: Some(format!("__**You added the following entry:**__\n{}", entry)),
-            flags: None,
-            components: Some(vec![]),
+            ..Default::default()
         };
         let client = client
             .post(&format!("channels/{}/messages", channel_id))
             .json(&payload);
         if let Err(error) = client.send().await.unwrap().error_for_status() {
             console_error!("Error sending message to user {}: {}", user_id, error);
-            return InteractionResponse::dms_closed();
+            return SimpleMessageResponse::dms_closed();
         }
 
-        InteractionResponse::success()
+        SimpleMessageResponse::success()
     }
 
     fn entry(&self) -> String {
@@ -280,7 +277,7 @@ impl ButtonInteraction {
         console_log!("Handling button!");
         SingleTextInputModalResponse {
             r#type: InteractionResponseType::Modal,
-            data: XXModalResponse::with_name(name),
+            data: ModalResponse::with_name(name),
         }
     }
 }
@@ -290,22 +287,19 @@ impl SingleTextModalButtonInteraction {
         &mut self,
         thankful_kv: KvStore,
         client: &mut discord::Client,
-    ) -> InteractionResponse {
+    ) -> SimpleMessageResponse {
         self.add_entry(thankful_kv).await;
         self.disable_button(client).await;
 
-        InteractionResponse {
+        SimpleMessageResponse {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(MessageResponse {
-                id: None,
-                channel_id: None,
+            data: NoComponentMessage {
                 content: Some(format!(
                     "**You added the following entry:**\n{}",
                     self.entry()
                 )),
-                flags: None,
-                components: Some(vec![]),
-            })),
+                ..Default::default()
+            },
         }
     }
 
@@ -366,62 +360,54 @@ impl SingleTextModalButtonInteraction {
     }
 }
 
-impl InteractionResponse {
+impl SimpleMessageResponse {
     #[allow(dead_code)]
-    fn not_implemented() -> InteractionResponse {
-        InteractionResponse {
+    fn not_implemented() -> Self {
+        Self {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(
-                MessageResponse::not_implemented(),
-            )),
+            data: NoComponentMessage::not_implemented(),
         }
     }
 
-    fn help() -> InteractionResponse {
-        InteractionResponse {
+    fn help() -> Self {
+        Self {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(MessageResponse::help())),
+            data: NoComponentMessage::help(),
         }
     }
 
-    fn success() -> InteractionResponse {
-        InteractionResponse {
+    fn success() -> Self {
+        Self {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(MessageResponse::success())),
+            data: NoComponentMessage::success(),
         }
     }
 
-    fn error() -> InteractionResponse {
-        InteractionResponse {
+    fn error() -> Self {
+        Self {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(MessageResponse::error())),
+            data: NoComponentMessage::error(),
         }
     }
 
-    fn dms_closed() -> InteractionResponse {
-        InteractionResponse {
+    fn dms_closed() -> Self {
+        Self {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(
-                MessageResponse::dms_closed(),
-            )),
+            data: NoComponentMessage::dms_closed(),
         }
     }
 
-    fn already_active() -> InteractionResponse {
-        InteractionResponse {
+    fn already_active() -> Self {
+        Self {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(
-                MessageResponse::already_active(),
-            )),
+            data: NoComponentMessage::already_active(),
         }
     }
 
-    fn not_active() -> InteractionResponse {
-        InteractionResponse {
+    fn not_active() -> Self {
+        Self {
             r#type: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(InteractionResponseData::Message(
-                MessageResponse::not_active(),
-            )),
+            data: NoComponentMessage::not_active(),
         }
     }
 }
@@ -470,9 +456,32 @@ impl SingleButtonMessage {
             ..Default::default()
         }
     }
+
+    pub fn from_entry(journal_entry: Option<String>) -> Self {
+        let content = match journal_entry {
+            Some(text) => Some(format!(
+                "__**Here's something you said you were grateful for in the past:**__\n{}",
+                text
+            )),
+            None => Some("Hope you're having a great day!".into()),
+        };
+        Self {
+            content,
+            components: [SingleButtonActionRow::entry_button()],
+            ..Default::default()
+        }
+    }
 }
 
 impl NoComponentMessage {
+    pub fn not_implemented() -> Self {
+        Self {
+            content: Some("This command is not yet implemented! Coming soon!".into()),
+            flags: Some(1 << 6),
+            ..Default::default()
+        }
+    }
+
     pub fn goodbye() -> Self {
         let content = Some(
             concat!(
@@ -482,24 +491,14 @@ impl NoComponentMessage {
             )
             .into(),
         );
-        NoComponentMessage {
+        Self {
             content,
-            ..Default::default()
-        }
-    }
-}
-
-impl MessageResponse {
-    pub fn not_implemented() -> Self {
-        MessageResponse {
-            content: Some("This command is not yet implemented! Coming soon!".into()),
-            flags: Some(1 << 6),
             ..Default::default()
         }
     }
 
     pub fn help() -> Self {
-        MessageResponse {
+        Self {
             content: Some(
                 concat!(
                     "__**Welcome to Gratitude Bot!**__\n",
@@ -523,23 +522,8 @@ impl MessageResponse {
         }
     }
 
-    pub fn from_entry(journal_entry: Option<String>) -> Self {
-        let content = match journal_entry {
-            Some(text) => Some(format!(
-                "__**Here's something you said you were grateful for in the past:**__\n{}",
-                text
-            )),
-            None => Some("Hope you're having a great day!".into()),
-        };
-        MessageResponse {
-            content,
-            components: Some(vec![ActionRow::with_entry_button()]),
-            ..Default::default()
-        }
-    }
-
     pub fn success() -> Self {
-        MessageResponse {
+        Self {
             content: Some(
                 "**It looks like that worked! 🥳** If it didn't do what you expected, contact Fitti#6969"
                     .to_string(),
@@ -550,7 +534,7 @@ impl MessageResponse {
     }
 
     pub fn error() -> Self {
-        MessageResponse {
+        Self {
             content: Some(
                 "Oh no! It looks like something went wrong!\nAsk Fitti#6969 for help!".into(),
             ),
@@ -560,7 +544,7 @@ impl MessageResponse {
     }
 
     pub fn dms_closed() -> Self {
-        MessageResponse {
+        Self {
             content: Some(format!(
                 "It looks like the bot can't DM you! Check your privacy settings: {}",
                 "https://support.discord.com/hc/en-us/articles/217916488-Blocking-Privacy-Settings",
@@ -571,7 +555,7 @@ impl MessageResponse {
     }
 
     pub fn already_active() -> Self {
-        MessageResponse {
+        Self {
             content: Some(
                 concat!(
                     "Looks like you're already an active user! ",
@@ -588,7 +572,7 @@ impl MessageResponse {
     }
 
     pub fn not_active() -> Self {
-        MessageResponse {
+        Self {
             content: Some(
                 concat!(
                     "Looks like you're not an active user! ",
@@ -619,15 +603,6 @@ impl SingleTextInputActionRow {
         Self {
             r#type: ActionRowType::ActionRow,
             components: [TextInput::new()],
-        }
-    }
-}
-
-impl ActionRow {
-    fn with_entry_button() -> Self {
-        ActionRow {
-            r#type: ActionRowType::ActionRow,
-            components: vec![Component::Button(Button::entry())],
         }
     }
 }

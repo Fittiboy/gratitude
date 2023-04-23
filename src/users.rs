@@ -1,5 +1,5 @@
 use crate::discord;
-use crate::interaction::MessageResponse;
+use crate::interaction::SingleButtonMessage;
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -88,7 +88,7 @@ pub struct BotUser {
 impl BotUser {
     pub async fn prompt(&self, kv: &KvStore, client: &mut discord::Client) {
         let entry = self.random_entry(kv).await;
-        let payload = MessageResponse::from_entry(entry);
+        let payload = SingleButtonMessage::from_entry(entry);
 
         let client = client
             .post(&format!("channels/{}/messages", self.channel_id))
