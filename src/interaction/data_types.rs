@@ -5,7 +5,9 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 pub type PingInteraction = Interaction<PingData>;
 pub type CommandInteraction = Interaction<ApplicationCommandData>;
 pub type ComponentInteraction = Interaction<ComponentIdentifier>;
-pub type ButtonInteraction = XXInteraction<ComponentIdentifier, XXMessageResponse<Button>>;
+pub type ButtonInteraction = SingleComponentInteraction<Button>;
+pub type SingleComponentInteraction<C> =
+    XXInteraction<ComponentIdentifier, XXMessageResponse<[XXActionRow<C>; 1]>>;
 pub type ModalInteraction = Interaction<ModalSubmitData>;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -277,7 +279,7 @@ pub struct XXMessageResponse<C> {
     pub channel_id: Option<String>,
     pub content: Option<String>,
     pub flags: Option<u16>,
-    pub components: [XXActionRow<C>; 1],
+    pub components: C,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -287,11 +289,6 @@ pub struct MessageResponse {
     pub content: Option<String>,
     pub flags: Option<u16>,
     pub components: Option<Vec<ActionRow>>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct XXMessageEditResponse<C> {
-    pub components: [XXActionRow<C>; 1],
 }
 
 #[derive(Debug, Serialize)]
