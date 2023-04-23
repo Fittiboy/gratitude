@@ -4,10 +4,12 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 pub type PingInteraction = Interaction<PingData>;
 pub type CommandInteraction = Interaction<ApplicationCommandData>;
-pub type ComponentInteraction = Interaction<ComponentIdentifier>;
 pub type ButtonInteraction = SingleComponentInteraction<Button>;
 pub type SingleComponentInteraction<C> =
-    XXInteraction<ComponentIdentifier, XXMessageResponse<[XXActionRow<C>; 1]>>;
+    XXInteraction<ComponentIdentifier, SingleComponentResponse<C>>;
+pub type SingleComponentResponse<C> =
+    XXMessageResponse<[XXActionRow<InteractionComponentType, C>; 1]>;
+pub type ComponentInteraction = Interaction<ComponentIdentifier>;
 pub type ModalInteraction = Interaction<ModalSubmitData>;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -54,11 +56,6 @@ pub struct ComponentIdentifier {
     pub custom_id: ComponentId,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct MessageComponentData<T> {
-    pub component_type: T,
-}
-
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[allow(clippy::enum_variant_names)]
 pub enum ComponentId {
@@ -80,17 +77,6 @@ pub enum TextInputId {
     GratefulInput,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[allow(clippy::enum_variant_names)]
-pub enum CustomId {
-    #[serde(rename = "grateful_button")]
-    GratefulButton,
-    #[serde(rename = "grateful_input")]
-    GratefulInput,
-    #[serde(rename = "grateful_modal")]
-    GratefulModal,
-}
-
 #[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
 #[repr(u8)]
 pub enum InteractionComponentType {
@@ -107,13 +93,13 @@ pub enum ComponentType {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ModalSubmitData {
-    pub custom_id: CustomId,
+    pub custom_id: ModalId,
     pub components: Vec<ActionRow>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct XXActionRow<C> {
-    pub r#type: ComponentType,
+pub struct XXActionRow<T, C> {
+    pub r#type: T,
     pub components: [C; 1],
 }
 
@@ -136,14 +122,14 @@ pub struct Button {
     pub r#type: ComponentType,
     pub style: u8,
     pub label: String,
-    pub custom_id: CustomId,
+    pub custom_id: ComponentId,
     pub disabled: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TextInput {
     pub r#type: ComponentType,
-    pub custom_id: CustomId,
+    pub custom_id: TextInputId,
     pub style: u8,
     pub label: String,
     pub min_length: u32,
@@ -154,7 +140,7 @@ pub struct TextInput {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TextInputSubmit {
     pub r#type: ComponentType,
-    pub custom_id: CustomId,
+    pub custom_id: TextInputId,
     pub value: String,
 }
 
@@ -268,7 +254,7 @@ pub enum InteractionResponseData {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ModalResponse {
-    pub custom_id: CustomId,
+    pub custom_id: ModalId,
     pub title: String,
     pub components: Vec<ActionRow>,
 }

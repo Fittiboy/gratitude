@@ -440,7 +440,7 @@ impl InteractionResponse {
 impl ModalResponse {
     pub fn with_name(name: String) -> Self {
         ModalResponse {
-            custom_id: CustomId::GratefulModal,
+            custom_id: ModalId::GratefulModal,
             title: format!("{}'s Gratitude Journal", name),
             components: vec![ActionRow::with_text_entry()],
         }
@@ -451,7 +451,7 @@ impl TextInput {
     pub fn new() -> Self {
         TextInput {
             r#type: ComponentType::TextInput,
-            custom_id: CustomId::GratefulInput,
+            custom_id: TextInputId::GratefulInput,
             style: 2,
             label: "Express your gratitude for something!".into(),
             min_length: 5,
@@ -634,7 +634,7 @@ impl Button {
             r#type: ComponentType::Button,
             style: 3,
             label: "What are you grateful for today?".into(),
-            custom_id: CustomId::GratefulButton,
+            custom_id: ComponentId::GratefulButton,
             disabled: Some(false),
         }
     }

@@ -3,7 +3,6 @@ use crate::error::Error;
 use crate::interaction::data_types::*;
 use crate::verification::verify_signature;
 use http::HttpError;
-use serde_json::from_str;
 use worker::{console_log, Request, RouteContext};
 
 mod http;
@@ -62,20 +61,14 @@ impl App {
 
         console_log!("Request body : {}", body);
 
-        let identifier = from_str::<InteractionIdentifier>(&body).map_err(Error::JsonFailed)?;
-
-        console_log!("{:?}", identifier.r#type);
-
-        match identifier.r#type {
+        match InteractionIdentifier::from_str(&body)?.r#type {
             InteractionType::Ping => Ok(PingInteraction::from_str(&body)?.handle().await),
             InteractionType::ApplicationCommand => Ok(CommandInteraction::from_str(&body)?
                 .handle(&mut client, users_kv, thankful_kv)
                 .await),
             InteractionType::MessageComponent => {
-                console_log!("Found button");
                 match ComponentInteraction::from_str(&body)?.data.custom_id {
                     ComponentId::GratefulButton => {
-                        console_log!("Found grateful_button");
                         return Ok(ButtonInteraction::from_str(&body)?.handle_grateful());
                     }
                 }
