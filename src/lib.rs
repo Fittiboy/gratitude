@@ -1,4 +1,3 @@
-use serde_json::to_string_pretty;
 use worker::*;
 
 mod bot;
@@ -31,8 +30,8 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
 
             match app.handle_request().await {
                 Ok(result) => {
-                    console_log!("Response : {}", to_string_pretty(&result).unwrap());
-                    Response::from_json(&result)
+                    console_log!("Response : {:#?}", result);
+                    Ok(result)
                 }
                 Err(httperr) => {
                     console_error!("Error response : {}", httperr.to_string());

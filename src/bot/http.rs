@@ -35,3 +35,9 @@ impl From<Error> for HttpError {
         }
     }
 }
+
+impl From<worker::Error> for HttpError {
+    fn from(error: worker::Error) -> Self {
+        Self::from(Error::from(error))
+    }
+}

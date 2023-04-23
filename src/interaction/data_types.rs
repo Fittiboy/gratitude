@@ -4,7 +4,7 @@ use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 pub type PingInteraction = Interaction<PingData, NoMessage>;
-pub type CommandInteraction = Interaction<ApplicationCommandData, NoComponentMessage>;
+pub type CommandInteraction = Interaction<ApplicationCommandData, NoMessage>;
 pub type ButtonInteraction = SingleComponentInteraction<Button>;
 pub type SingleTextModalButtonInteraction = SingleTextModalComponentInteraction<Button>;
 pub type InteractionIdentifier = Interaction<GenericData, GenericMessage>;

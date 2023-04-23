@@ -3,6 +3,7 @@ use crate::error::Error;
 use crate::interaction::data_types::*;
 use crate::verification::verify_signature;
 use http::HttpError;
+use worker::Response as Res;
 use worker::{console_log, Request, RouteContext};
 
 mod http;
@@ -45,7 +46,7 @@ impl App {
         Ok(body)
     }
 
-    pub async fn handle_request(&mut self) -> Result<String, HttpError> {
+    pub async fn handle_request(&mut self) -> Result<Res, HttpError> {
         let body = self.validate_sig().await?;
         let thankful_kv = self
             .ctx
@@ -61,27 +62,27 @@ impl App {
 
         console_log!("Request body : {}", body);
 
-        let result = match InteractionIdentifier::from_str(&body)?.r#type {
-            InteractionType::Ping => PingInteraction::from_str(&body)?
-                .handle()
-                .await
-                .as_string()?,
-            InteractionType::ApplicationCommand => CommandInteraction::from_str(&body)?
-                .handle(&mut client, users_kv, thankful_kv)
-                .await
-                .as_string()?,
+        match InteractionIdentifier::from_str(&body)?.r#type {
+            InteractionType::Ping => Ok(Res::from_json(
+                &PingInteraction::from_str(&body)?.handle().await,
+            )?),
+            InteractionType::ApplicationCommand => Ok(Res::from_json(
+                &CommandInteraction::from_str(&body)?
+                    .handle(&mut client, users_kv, thankful_kv)
+                    .await,
+            )?),
             InteractionType::MessageComponent => {
                 match ComponentIdentifier::from_str(&body)?.data.custom_id {
-                    CustomId::GratefulButton => ButtonInteraction::from_str(&body)?
-                        .handle_grateful()
-                        .as_string()?,
+                    CustomId::GratefulButton => Ok(Res::from_json(
+                        &ButtonInteraction::from_str(&body)?.handle_grateful(),
+                    )?),
                 }
             }
-            InteractionType::ModalSubmit => SingleTextModalButtonInteraction::from_str(&body)?
-                .handle(thankful_kv, &mut client)
-                .await
-                .as_string()?,
-        };
-        Ok(result)
+            InteractionType::ModalSubmit => Ok(Res::from_json(
+                &SingleTextModalButtonInteraction::from_str(&body)?
+                    .handle(thankful_kv, &mut client)
+                    .await,
+            )?),
+        }
     }
 }

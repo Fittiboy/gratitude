@@ -16,16 +16,13 @@ pub enum Error {
 
     #[error("Verification failed.")]
     VerificationFailed(VerificationError),
+
+    #[error("Worker error: {0}.")]
+    WorkerError(worker::Error),
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum InteractionError {
-    #[error("Cloudflare worker error: {0}")]
-    WorkerError(String),
-}
-
-impl From<worker::Error> for InteractionError {
-    fn from(error: worker::Error) -> InteractionError {
-        InteractionError::WorkerError(format!("{}", error))
+impl From<worker::Error> for Error {
+    fn from(error: worker::Error) -> Self {
+        Self::WorkerError(error)
     }
 }
