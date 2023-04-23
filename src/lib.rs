@@ -29,8 +29,9 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             let mut app = bot::App::new(req, ctx);
 
             match app.handle_request().await {
-                Ok(result) => {
-                    console_log!("Response : {:#?}", result);
+                Ok(mut result) => {
+                    let mut clone = result.cloned().unwrap();
+                    console_log!("Response: {}", clone.text().await?);
                     Ok(result)
                 }
                 Err(httperr) => {
