@@ -76,6 +76,7 @@ impl CommandInteraction {
                 let channel_id = self
                     .channel_id
                     .clone()
+                    //TODO: Make illegal state unrepresentable
                     .expect("If user struct is there, channel_id will be the DM channel");
                 (user_id, channel_id)
             }
@@ -272,6 +273,7 @@ impl ButtonInteraction {
         let name = self
             .user
             .clone()
+            //TODO: Make illegal state unrepresentable
             .expect("Only users can click buttons")
             .username;
         console_log!("Handling button!");
