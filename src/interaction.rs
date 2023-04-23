@@ -7,7 +7,7 @@ use crate::users::BotUser;
 pub mod data_types;
 pub use data_types::*;
 
-impl Interaction<PingData> {
+impl PingInteraction {
     pub async fn handle(&self) -> InteractionResponse {
         InteractionResponse {
             r#type: InteractionResponseType::Pong,
@@ -16,7 +16,7 @@ impl Interaction<PingData> {
     }
 }
 
-impl Interaction<ApplicationCommandData> {
+impl CommandInteraction {
     pub async fn handle(
         &self,
         client: &mut discord::Client,
@@ -143,7 +143,7 @@ impl Interaction<ApplicationCommandData> {
             console_error!("Couldn't add user to list: {}", err);
             return InteractionResponse::error();
         }
-        let payload = MessageResponse::welcome();
+        let payload = XXMessageResponse::welcome();
         let client = client
             .post(&format!("channels/{}/messages", channel_id))
             .json(&payload);
@@ -193,7 +193,7 @@ impl Interaction<ApplicationCommandData> {
             }
         }
 
-        let payload = MessageResponse::goodbye();
+        let payload = NoComponentMessage::goodbye();
         let client = client
             .post(&format!("channels/{}/messages", channel_id))
             .json(&payload);
@@ -238,6 +238,35 @@ impl Interaction<ApplicationCommandData> {
         let OptionData { value, .. } = self.data.options.as_ref().unwrap().first().unwrap();
         let OptionValue::String(ref value) = value.as_ref().unwrap() else { unreachable!("Value guaranteed by Discord") };
         value.to_owned()
+    }
+
+    async fn add_entry(&self, thankful_kv: KvStore, entry: &str) {
+        let id = match self.user.as_ref() {
+            Some(User { id, .. }) => id,
+            None => match self.member {
+                Some(Member { ref user, .. }) => &user.as_ref().unwrap().id,
+                None => unreachable!("There should always be a member or a user!"),
+            },
+        };
+        let mut entries = self.get_entries(&thankful_kv, id).await;
+        entries.push(entry.to_string());
+        thankful_kv
+            .put(id, entries)
+            .unwrap()
+            .execute()
+            .await
+            .expect("should be able to serialize entries");
+    }
+
+    async fn get_entries(&self, kv: &KvStore, id: &str) -> Vec<String> {
+        match kv.get(id).text().await {
+            Ok(Some(text)) => from_str(&text).unwrap(),
+            Ok(None) => Vec::new(),
+            Err(err) => {
+                console_error!("Couldn't get entries: {}", err);
+                panic!();
+            }
+        }
     }
 }
 
@@ -339,37 +368,6 @@ impl SingleTextModalButtonInteraction {
     }
 }
 
-impl<T> Interaction<T> {
-    async fn add_entry(&self, thankful_kv: KvStore, entry: &str) {
-        let id = match self.user.as_ref() {
-            Some(User { id, .. }) => id,
-            None => match self.member {
-                Some(Member { ref user, .. }) => &user.as_ref().unwrap().id,
-                None => unreachable!("There should always be a member or a user!"),
-            },
-        };
-        let mut entries = self.get_entries(&thankful_kv, id).await;
-        entries.push(entry.to_string());
-        thankful_kv
-            .put(id, entries)
-            .unwrap()
-            .execute()
-            .await
-            .expect("should be able to serialize entries");
-    }
-
-    async fn get_entries(&self, kv: &KvStore, id: &str) -> Vec<String> {
-        match kv.get(id).text().await {
-            Ok(Some(text)) => from_str(&text).unwrap(),
-            Ok(None) => Vec::new(),
-            Err(err) => {
-                console_error!("Couldn't get entries: {}", err);
-                panic!();
-            }
-        }
-    }
-}
-
 impl InteractionResponse {
     #[allow(dead_code)]
     fn not_implemented() -> InteractionResponse {
@@ -456,6 +454,43 @@ impl TextInput {
     }
 }
 
+impl SingleButtonResponse {
+    pub fn welcome() -> Self {
+        let content = Some(
+            concat!(
+                "**Hi there! Thank you for deciding to use Gratitude Bot! 🥳**\n",
+                "The bot will send you reminders, every few days or so, to ",
+                "think about someting you are grateful for, and ask you to add it ",
+                "to your journal! You can use /stop at any time to stop these reminders",
+                "\n\n👇 Click the button below to make an entry into your journal right now!"
+            )
+            .to_string(),
+        );
+        SingleButtonResponse {
+            content,
+            components: [SingleButtonActionRow::entry_button()],
+            ..Default::default()
+        }
+    }
+}
+
+impl NoComponentMessage {
+    pub fn goodbye() -> Self {
+        let content = Some(
+            concat!(
+                "**You will no longer receive reminders! See you around! 😊**\n",
+                "Rememeber that you can still use **/entry** to make entries, ",
+                "and **/start** to receive these reminders again!"
+            )
+            .into(),
+        );
+        NoComponentMessage {
+            content,
+            ..Default::default()
+        }
+    }
+}
+
 impl MessageResponse {
     pub fn not_implemented() -> Self {
         MessageResponse {
@@ -486,39 +521,6 @@ impl MessageResponse {
                 .to_string(),
             ),
             flags: Some(1 << 6),
-            ..Default::default()
-        }
-    }
-
-    pub fn welcome() -> Self {
-        let content = Some(
-            concat!(
-                "**Hi there! Thank you for deciding to use Gratitude Bot! 🥳**\n",
-                "The bot will send you reminders, every few days or so, to ",
-                "think about someting you are grateful for, and ask you to add it ",
-                "to your journal! You can use /stop at any time to stop these reminders",
-                "\n\n👇 Click the button below to make an entry into your journal right now!"
-            )
-            .to_string(),
-        );
-        MessageResponse {
-            content,
-            components: Some(vec![ActionRow::with_entry_button()]),
-            ..Default::default()
-        }
-    }
-
-    pub fn goodbye() -> Self {
-        let content = Some(
-            concat!(
-                "**You will no longer receive reminders! See you around! 😊**\n",
-                "Rememeber that you can still use **/entry** to make entries, ",
-                "and **/start** to receive these reminders again!"
-            )
-            .into(),
-        );
-        MessageResponse {
-            content,
             ..Default::default()
         }
     }
@@ -601,6 +603,15 @@ impl MessageResponse {
             ),
             flags: Some(1 << 6),
             ..Default::default()
+        }
+    }
+}
+
+impl SingleButtonActionRow {
+    fn entry_button() -> Self {
+        Self {
+            r#type: ActionRowType::ActionRow,
+            components: [Button::entry()],
         }
     }
 }

@@ -1,22 +1,26 @@
 use crate::error::Error;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-pub type PingInteraction = Interaction<PingData>;
+pub type PingInteraction = Interaction<PingData, Option<()>>;
 
-pub type CommandInteraction = Interaction<ApplicationCommandData>;
+pub type CommandInteraction = Interaction<ApplicationCommandData, NoComponentMessage>;
 
 pub type ButtonInteraction = SingleComponentInteraction<Button>;
 pub type SingleComponentInteraction<C> =
-    XXInteraction<ComponentIdentifier, SingleComponentResponse<C>>;
+    Interaction<ComponentIdentifier, SingleComponentResponse<C>>;
+pub type SingleButtonResponse = SingleComponentResponse<Button>;
+pub type NoComponentMessage = XXMessageResponse<Option<()>>;
 pub type SingleComponentResponse<C> = XXMessageResponse<[SingleComponentActionRow<C>; 1]>;
+pub type SingleButtonActionRow = SingleComponentActionRow<Button>;
 pub type SingleComponentActionRow<C> = XXActionRow<[C; 1]>;
-pub type ComponentInteraction = Interaction<ComponentIdentifier>;
+pub type ComponentInteraction = Interaction<ComponentIdentifier, Option<Value>>;
 
 pub type SingleTextModalButtonInteraction = SingleTextModalInteraction<Button>;
 pub type SingleTextModalInteraction<B> = SingleComponentModalInteraction<TextInputSubmit, B>;
 pub type SingleComponentModalInteraction<C, B> =
-    XXInteraction<SingleComponentModalSubmit<C>, SingleComponentResponse<B>>;
+    Interaction<SingleComponentModalSubmit<C>, SingleComponentResponse<B>>;
 pub type SingleComponentModalSubmit<C> = ModalSubmitData<SingleComponentActionRow<[C; 1]>>;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -25,23 +29,12 @@ pub struct InteractionIdentifier {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct XXInteraction<T, C> {
+pub struct Interaction<T, C> {
     pub data: T,
     pub token: String,
     pub guild_id: Option<String>,
     pub channel_id: Option<String>,
     pub message: C,
-    pub member: Option<Member>,
-    pub user: Option<User>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Interaction<T> {
-    pub data: T,
-    pub token: String,
-    pub guild_id: Option<String>,
-    pub channel_id: Option<String>,
-    pub message: Option<MessageResponse>,
     pub member: Option<Member>,
     pub user: Option<User>,
 }
@@ -63,9 +56,10 @@ pub struct ComponentIdentifier {
     pub custom_id: ComponentId,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 #[allow(clippy::enum_variant_names)]
 pub enum ComponentId {
+    #[default]
     #[serde(rename = "grateful_button")]
     GratefulButton,
 }
@@ -96,15 +90,17 @@ pub enum InteractionModalSubmitType {
     TextInput = 4,
 }
 
-#[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
+#[derive(Debug, Default, Deserialize_repr, Serialize_repr, Clone)]
 #[repr(u8)]
 pub enum ActionRowType {
+    #[default]
     ActionRow = 1,
 }
 
-#[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
+#[derive(Debug, Default, Deserialize_repr, Serialize_repr, Clone)]
 #[repr(u8)]
 pub enum ComponentType {
+    #[default]
     ActionRow = 1,
     Button = 2,
     TextInput = 4,
@@ -116,7 +112,7 @@ pub struct ModalSubmitData<C> {
     pub components: C,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct XXActionRow<C> {
     pub r#type: ActionRowType,
     pub components: C,
@@ -136,7 +132,7 @@ pub enum Component {
     TextInputSubmit(TextInputSubmit),
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct Button {
     pub r#type: ComponentType,
     pub style: u8,
@@ -278,7 +274,7 @@ pub struct ModalResponse {
     pub components: Vec<ActionRow>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct XXMessageResponse<C> {
     pub id: Option<String>,
     pub channel_id: Option<String>,
