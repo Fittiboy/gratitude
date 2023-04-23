@@ -3,18 +3,20 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-pub type PingInteraction = Interaction<PingData, NoComponent>;
+pub type PingInteraction = Interaction<PingData, NoMessage>;
 pub type CommandInteraction = Interaction<ApplicationCommandData, NoComponentMessage>;
 pub type ButtonInteraction = SingleComponentInteraction<Button>;
 pub type SingleTextModalButtonInteraction = SingleTextModalComponentInteraction<Button>;
-pub type ComponentIdentifyingInteraction = Interaction<ComponentIdentifier, GenericMessage>;
+pub type InteractionIdentifier = Interaction<GenericData, GenericMessage>;
+pub type ComponentIdentifier = Interaction<ComponentIdData, GenericMessage>;
 
 pub type NoComponent = Option<()>;
+pub type NoMessage = Option<()>;
 pub type NoComponentMessage = Message<NoComponent>;
-pub type SingleComponentInteraction<C> =
-    Interaction<ComponentIdentifier, SingleComponentMessage<C>>;
+pub type SingleComponentInteraction<C> = Interaction<ComponentIdData, SingleComponentMessage<C>>;
 pub type SingleTextModalComponentInteraction<C> =
     SingleComponentModalInteraction<TextInputSubmit, C>;
+pub type GenericData = Option<Value>;
 pub type GenericMessage = Option<Value>;
 
 pub type SingleComponentMessage<C> = Message<[SingleComponentActionRow<C>; 1]>;
@@ -28,12 +30,8 @@ pub type SingleButtonActionRow = SingleComponentActionRow<Button>;
 pub type SingleButtonMessage = SingleComponentMessage<Button>;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
-pub struct InteractionIdentifier {
-    pub r#type: InteractionType,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Interaction<T, C> {
+    pub r#type: InteractionType,
     pub data: T,
     pub token: String,
     pub guild_id: Option<String>,
@@ -57,13 +55,13 @@ pub enum InteractionType {
 pub struct PingData;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct ComponentIdentifier {
-    pub custom_id: ComponentId,
+pub struct ComponentIdData {
+    pub custom_id: CustomId,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
 #[allow(clippy::enum_variant_names)]
-pub enum ComponentId {
+pub enum CustomId {
     #[default]
     #[serde(rename = "grateful_button")]
     GratefulButton,
@@ -143,7 +141,7 @@ pub struct Button {
     pub r#type: InteractionComponentType,
     pub style: u8,
     pub label: String,
-    pub custom_id: ComponentId,
+    pub custom_id: CustomId,
     pub disabled: Option<bool>,
 }
 

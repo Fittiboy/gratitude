@@ -638,7 +638,7 @@ impl Button {
             r#type: InteractionComponentType::Button,
             style: 3,
             label: "What are you grateful for today?".into(),
-            custom_id: ComponentId::GratefulButton,
+            custom_id: CustomId::GratefulButton,
             disabled: Some(false),
         }
     }
