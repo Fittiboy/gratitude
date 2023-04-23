@@ -7,9 +7,13 @@ pub type CommandInteraction = Interaction<ApplicationCommandData>;
 pub type ButtonInteraction = SingleComponentInteraction<Button>;
 pub type SingleComponentInteraction<C> =
     XXInteraction<ComponentIdentifier, SingleComponentResponse<C>>;
-pub type SingleComponentResponse<C> =
-    XXMessageResponse<[XXActionRow<InteractionComponentType, C>; 1]>;
+pub type SingleComponentResponse<C> = XXMessageResponse<[SingleComponentActionRow<C>; 1]>;
+pub type SingleComponentActionRow<C> = XXActionRow<[C; 1]>;
 pub type ComponentInteraction = Interaction<ComponentIdentifier>;
+pub type SingleTextModalInteraction = SingleComponentModalInteraction<TextInput>;
+pub type SingleComponentModalInteraction<C> =
+    XXInteraction<SingleComponentModalSubmit<C>, SingleComponentResponse<C>>;
+pub type SingleComponentModalSubmit<C> = XXModalSubmitData<SingleComponentActionRow<[C; 1]>>;
 pub type ModalInteraction = Interaction<ModalSubmitData>;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -85,10 +89,28 @@ pub enum InteractionComponentType {
 
 #[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
 #[repr(u8)]
+pub enum InteractionModalSubmitType {
+    TextInput = 4,
+}
+
+#[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
+#[repr(u8)]
+pub enum ActionRowType {
+    ActionRow = 1,
+}
+
+#[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
+#[repr(u8)]
 pub enum ComponentType {
     ActionRow = 1,
     Button = 2,
     TextInput = 4,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct XXModalSubmitData<C> {
+    pub custom_id: ModalId,
+    pub components: C,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -98,9 +120,9 @@ pub struct ModalSubmitData {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct XXActionRow<T, C> {
-    pub r#type: T,
-    pub components: [C; 1],
+pub struct XXActionRow<C> {
+    pub r#type: ActionRowType,
+    pub components: C,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
