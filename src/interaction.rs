@@ -271,18 +271,16 @@ impl CommandInteraction {
 }
 
 impl ButtonInteraction {
-    pub fn handle_grateful(&self) -> InteractionResponse {
+    pub fn handle_grateful(&self) -> SingleTextInputModalResponse {
         let name = self
             .user
             .clone()
             .expect("Only users can click buttons")
             .username;
         console_log!("Handling button!");
-        InteractionResponse {
+        SingleTextInputModalResponse {
             r#type: InteractionResponseType::Modal,
-            data: Some(InteractionResponseData::Modal(ModalResponse::with_name(
-                name,
-            ))),
+            data: XXModalResponse::with_name(name),
         }
     }
 }
@@ -342,7 +340,7 @@ impl SingleTextModalButtonInteraction {
     }
 
     fn entry(&self) -> &str {
-        &self.data.components.components[0][0].value
+        &self.data.components[0].components[0].value
     }
 
     async fn disable_button(&mut self, client: &mut discord::Client) {
@@ -428,12 +426,12 @@ impl InteractionResponse {
     }
 }
 
-impl ModalResponse {
+impl SingleTextInputModalData {
     pub fn with_name(name: String) -> Self {
-        ModalResponse {
+        Self {
             custom_id: ModalId::GratefulModal,
             title: format!("{}'s Gratitude Journal", name),
-            components: vec![ActionRow::with_text_entry()],
+            components: [SingleTextInputActionRow::with_text_entry()],
         }
     }
 }
@@ -616,18 +614,20 @@ impl SingleButtonActionRow {
     }
 }
 
+impl SingleTextInputActionRow {
+    fn with_text_entry() -> Self {
+        Self {
+            r#type: ActionRowType::ActionRow,
+            components: [TextInput::new()],
+        }
+    }
+}
+
 impl ActionRow {
     fn with_entry_button() -> Self {
         ActionRow {
             r#type: ActionRowType::ActionRow,
             components: vec![Component::Button(Button::entry())],
-        }
-    }
-
-    fn with_text_entry() -> Self {
-        ActionRow {
-            r#type: ActionRowType::ActionRow,
-            components: vec![Component::TextInput(TextInput::new())],
         }
     }
 }

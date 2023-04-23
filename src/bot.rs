@@ -45,7 +45,7 @@ impl App {
         Ok(body)
     }
 
-    pub async fn handle_request(&mut self) -> Result<InteractionResponse, HttpError> {
+    pub async fn handle_request(&mut self) -> Result<impl crate::interaction::Response, HttpError> {
         let body = self.validate_sig().await?;
         let thankful_kv = self
             .ctx

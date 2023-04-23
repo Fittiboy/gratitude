@@ -18,25 +18,30 @@ pub type SingleTextModalComponentInteraction<C> =
     SingleComponentModalInteraction<TextInputSubmit, C>;
 pub type GenericData = Option<Value>;
 pub type GenericMessage = Option<Value>;
-
-pub type SingleComponentMessage<C> = Message<[SingleComponentActionRow<C>; 1]>;
-pub type SingleComponentModalInteraction<C, B> =
-    Interaction<SingleComponentModalSubmit<C>, SingleComponentMessage<B>>;
-
-pub type SingleComponentActionRow<C> = XXActionRow<[C; 1]>;
-pub type SingleComponentModalSubmit<C> = ModalSubmitData<SingleComponentActionRow<[C; 1]>>;
-pub type SingleButtonActionRow = SingleComponentActionRow<Button>;
-
 pub type SingleButtonMessage = SingleComponentMessage<Button>;
 
+pub type SingleComponentMessage<C> = Message<[SingleComponentActionRow<C>; 1]>;
+pub type SingleComponentModalInteraction<C, C2> =
+    Interaction<SingleComponentModalSubmit<C>, SingleComponentMessage<C2>>;
+
+pub type SingleTextInputModalResponse = XXInteractionResponse<SingleTextInputModalData>;
+
+pub type SingleButtonActionRow = SingleComponentActionRow<Button>;
+pub type SingleTextInputActionRow = SingleComponentActionRow<TextInput>;
+pub type SingleTextInputModalData = SingleComponentModalResponse<TextInput>;
+
+pub type SingleComponentActionRow<C> = XXActionRow<[C; 1]>;
+pub type SingleComponentModalResponse<C> = XXModalResponse<[SingleComponentActionRow<C>; 1]>;
+pub type SingleComponentModalSubmit<C> = ModalSubmitData<[SingleComponentActionRow<C>; 1]>;
+
 #[derive(Debug, Default, Deserialize, Serialize)]
-pub struct Interaction<T, C> {
+pub struct Interaction<D, M> {
     pub r#type: InteractionType,
-    pub data: T,
+    pub data: D,
     pub token: String,
     pub guild_id: Option<String>,
     pub channel_id: Option<String>,
-    pub message: C,
+    pub message: M,
     pub member: Option<Member>,
     pub user: Option<User>,
 }
@@ -259,6 +264,12 @@ pub struct User {
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
+pub struct XXInteractionResponse<D> {
+    pub r#type: InteractionResponseType,
+    pub data: D,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct InteractionResponse {
     pub r#type: InteractionResponseType,
     pub data: Option<InteractionResponseData>,
@@ -278,7 +289,6 @@ pub enum InteractionResponseType {
 #[serde(untagged)]
 pub enum InteractionResponseData {
     Message(MessageResponse),
-    Modal(ModalResponse),
 }
 
 impl Default for InteractionResponseData {
@@ -288,10 +298,10 @@ impl Default for InteractionResponseData {
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
-pub struct ModalResponse {
+pub struct XXModalResponse<C> {
     pub custom_id: ModalId,
     pub title: String,
-    pub components: Vec<ActionRow>,
+    pub components: C,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -346,6 +356,10 @@ pub enum ChannelType {
     GuildDirectory = 14,
     GuildForum = 15,
 }
+
+pub trait Response: Serialize {}
+impl Response for InteractionResponse {}
+impl<T> Response for XXInteractionResponse<T> where T: Serialize {}
 
 pub trait MarkDeserialize<'a>
 where
