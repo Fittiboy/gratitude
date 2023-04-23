@@ -4,15 +4,27 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 pub type PingInteraction = Interaction<PingData>;
 pub type CommandInteraction = Interaction<ApplicationCommandData>;
-pub type ButtonInteraction = Interaction<MessageComponentData<Button>>;
+pub type ComponentInteraction = Interaction<ComponentIdentifier>;
+pub type ButtonInteraction = XXInteraction<ComponentIdentifier, XXMessageResponse<Button>>;
 pub type ModalInteraction = Interaction<ModalSubmitData>;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct InteractionIdentifier {
     pub r#type: InteractionType,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
+pub struct XXInteraction<T, C> {
+    pub data: T,
+    pub token: String,
+    pub guild_id: Option<String>,
+    pub channel_id: Option<String>,
+    pub message: C,
+    pub member: Option<Member>,
+    pub user: Option<User>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Interaction<T> {
     pub data: T,
     pub token: String,
@@ -23,7 +35,7 @@ pub struct Interaction<T> {
     pub user: Option<User>,
 }
 
-#[derive(Deserialize_repr, Serialize_repr)]
+#[derive(Debug, Deserialize_repr, Serialize_repr)]
 #[repr(u8)]
 pub enum InteractionType {
     Ping = 1,
@@ -32,15 +44,15 @@ pub enum InteractionType {
     ModalSubmit = 5,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PingData;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ComponentIdentifier {
     pub custom_id: ComponentId,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct MessageComponentData<T> {
     pub component_type: T,
 }
@@ -91,10 +103,16 @@ pub enum ComponentType {
     TextInput = 4,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ModalSubmitData {
     pub custom_id: CustomId,
     pub components: Vec<ActionRow>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct XXActionRow<C> {
+    pub r#type: ComponentType,
+    pub components: [C; 1],
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -201,7 +219,7 @@ pub enum OptionValue {
     Bool(bool),
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Member {
     pub user: Option<User>,
     pub nick: Option<String>,
@@ -217,7 +235,7 @@ pub struct Member {
     pub communication_disabled_until: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct User {
     pub id: String,
     pub username: String,
@@ -246,11 +264,20 @@ pub enum InteractionResponseData {
     Message(MessageResponse),
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ModalResponse {
     pub custom_id: CustomId,
     pub title: String,
     pub components: Vec<ActionRow>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct XXMessageResponse<C> {
+    pub id: Option<String>,
+    pub channel_id: Option<String>,
+    pub content: Option<String>,
+    pub flags: Option<u16>,
+    pub components: [XXActionRow<C>; 1],
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -260,6 +287,11 @@ pub struct MessageResponse {
     pub content: Option<String>,
     pub flags: Option<u16>,
     pub components: Option<Vec<ActionRow>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct XXMessageEditResponse<C> {
+    pub components: [XXActionRow<C>; 1],
 }
 
 #[derive(Debug, Serialize)]

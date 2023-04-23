@@ -62,17 +62,20 @@ impl App {
 
         console_log!("Request body : {}", body);
 
-        match from_str::<InteractionIdentifier>(&body)
-            .map_err(Error::JsonFailed)?
-            .r#type
-        {
+        let identifier = from_str::<InteractionIdentifier>(&body).map_err(Error::JsonFailed)?;
+
+        console_log!("{:?}", identifier.r#type);
+
+        match identifier.r#type {
             InteractionType::Ping => Ok(PingInteraction::from_str(&body)?.handle().await),
             InteractionType::ApplicationCommand => Ok(CommandInteraction::from_str(&body)?
                 .handle(&mut client, users_kv, thankful_kv)
                 .await),
             InteractionType::MessageComponent => {
-                match ComponentIdentifier::from_str(&body)?.custom_id {
+                console_log!("Found button");
+                match ComponentInteraction::from_str(&body)?.data.custom_id {
                     ComponentId::GratefulButton => {
+                        console_log!("Found grateful_button");
                         return Ok(ButtonInteraction::from_str(&body)?.handle_grateful());
                     }
                 }
