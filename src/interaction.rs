@@ -111,11 +111,11 @@ impl CommandInteraction {
         };
         match channel {
             Ok(channel) => {
-                return Some(channel.id);
+                Some(channel.id)
             }
             Err(err) => {
                 console_error!("Couldn't get DM channel: {}", err);
-                return None;
+                None
             }
         }
     }
