@@ -258,14 +258,13 @@ impl ButtonInteraction {
     }
 }
 
-impl Interaction<ModalSubmitData> {
+impl SingleTextModalButtonInteraction {
     pub async fn handle(
-        &self,
+        &mut self,
         thankful_kv: KvStore,
         client: &mut discord::Client,
     ) -> InteractionResponse {
-        let entry = self.entry();
-        self.add_entry(thankful_kv, &entry).await;
+        self.add_entry(thankful_kv).await;
         self.disable_button(client).await;
 
         InteractionResponse {
@@ -273,69 +272,63 @@ impl Interaction<ModalSubmitData> {
             data: Some(InteractionResponseData::Message(MessageResponse {
                 id: None,
                 channel_id: None,
-                content: Some(format!("**You added the following entry:**\n{}", entry)),
+                content: Some(format!(
+                    "**You added the following entry:**\n{}",
+                    self.entry()
+                )),
                 flags: None,
                 components: Some(vec![]),
             })),
         }
     }
 
-    fn entry(&self) -> String {
-        let action_row = self.data.components.first().unwrap();
-        let Component::TextInputSubmit(TextInputSubmit { value, .. }) =
-            action_row.components.first().unwrap() else {
-                unreachable!("Modals support only text inputs");
-            };
-        value.to_owned()
-    }
-
-    async fn disable_button(&self, client: &mut discord::Client) {
-        let (message_id, mut payload) = self.id_and_payload();
-        Self::prepare_button_disable_payload(&mut payload);
-        console_log!("Payload to disable button: {:#?}", payload);
-
-        self.submit_disable_button_request(message_id, client, payload)
-            .await;
-    }
-
-    fn id_and_payload(&self) -> (String, MessageEditResponse) {
-        let message = self.message.as_ref().unwrap();
-        let message_id = message.id.clone().unwrap();
-        let payload = message
-            .components
-            .clone()
-            .expect("Messages with a modal always have at least one component");
-        (
-            message_id,
-            MessageEditResponse {
-                components: payload,
+    async fn add_entry(&self, thankful_kv: KvStore) {
+        let entry = self.entry();
+        let id = match self.user.as_ref() {
+            Some(User { id, .. }) => id,
+            None => match self.member {
+                Some(Member { ref user, .. }) => &user.as_ref().unwrap().id,
+                None => unreachable!("There should always be a member or a user!"),
             },
-        )
+        };
+        let mut entries = self.get_entries(&thankful_kv, id).await;
+        entries.push(entry.to_string());
+        thankful_kv
+            .put(id, entries)
+            .unwrap()
+            .execute()
+            .await
+            .expect("should be able to serialize entries");
     }
 
-    fn prepare_button_disable_payload(payload: &mut MessageEditResponse) {
-        let components = &mut payload.components;
-        if let Component::Button(Button { disabled, .. }) = components
-            .first_mut()
-            .unwrap()
-            .components
-            .first_mut()
-            .unwrap()
-        {
-            *disabled = Some(true)
+    async fn get_entries(&self, kv: &KvStore, id: &str) -> Vec<String> {
+        match kv.get(id).text().await {
+            Ok(Some(text)) => from_str(&text).unwrap(),
+            Ok(None) => Vec::new(),
+            Err(err) => {
+                console_error!("Couldn't get entries: {}", err);
+                panic!();
+            }
         }
     }
 
-    async fn submit_disable_button_request(
-        &self,
-        message_id: String,
-        client: &mut discord::Client,
-        payload: MessageEditResponse,
-    ) {
-        let channel_id = self.channel_id.clone().unwrap();
+    fn entry(&self) -> &str {
+        &self.data.components.components[0][0].value
+    }
+
+    async fn disable_button(&mut self, client: &mut discord::Client) {
+        self.message.components[0].components[0].disabled = Some(true);
+        self.submit_disable_button_request(client).await;
+    }
+
+    async fn submit_disable_button_request(&self, client: &mut discord::Client) {
         if let Err(error) = client
-            .patch(&format!("channels/{}/messages/{}", channel_id, message_id,))
-            .json(&payload)
+            .patch(&format!(
+                "channels/{}/messages/{}",
+                self.channel_id.as_ref().unwrap(),
+                self.message.id.as_ref().unwrap()
+            ))
+            .json(&self.message)
             .send()
             .await
             .unwrap()

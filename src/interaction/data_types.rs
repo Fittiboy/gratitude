@@ -3,18 +3,21 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 pub type PingInteraction = Interaction<PingData>;
+
 pub type CommandInteraction = Interaction<ApplicationCommandData>;
+
 pub type ButtonInteraction = SingleComponentInteraction<Button>;
 pub type SingleComponentInteraction<C> =
     XXInteraction<ComponentIdentifier, SingleComponentResponse<C>>;
 pub type SingleComponentResponse<C> = XXMessageResponse<[SingleComponentActionRow<C>; 1]>;
 pub type SingleComponentActionRow<C> = XXActionRow<[C; 1]>;
 pub type ComponentInteraction = Interaction<ComponentIdentifier>;
-pub type SingleTextModalInteraction = SingleComponentModalInteraction<TextInput>;
-pub type SingleComponentModalInteraction<C> =
-    XXInteraction<SingleComponentModalSubmit<C>, SingleComponentResponse<C>>;
-pub type SingleComponentModalSubmit<C> = XXModalSubmitData<SingleComponentActionRow<[C; 1]>>;
-pub type ModalInteraction = Interaction<ModalSubmitData>;
+
+pub type SingleTextModalButtonInteraction = SingleTextModalInteraction<Button>;
+pub type SingleTextModalInteraction<B> = SingleComponentModalInteraction<TextInputSubmit, B>;
+pub type SingleComponentModalInteraction<C, B> =
+    XXInteraction<SingleComponentModalSubmit<C>, SingleComponentResponse<B>>;
+pub type SingleComponentModalSubmit<C> = ModalSubmitData<SingleComponentActionRow<[C; 1]>>;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct InteractionIdentifier {
@@ -108,15 +111,9 @@ pub enum ComponentType {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct XXModalSubmitData<C> {
+pub struct ModalSubmitData<C> {
     pub custom_id: ModalId,
     pub components: C,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct ModalSubmitData {
-    pub custom_id: ModalId,
-    pub components: Vec<ActionRow>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -297,6 +294,11 @@ pub struct MessageResponse {
     pub content: Option<String>,
     pub flags: Option<u16>,
     pub components: Option<Vec<ActionRow>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct XXMessageEditResponse<C> {
+    pub components: C,
 }
 
 #[derive(Debug, Serialize)]

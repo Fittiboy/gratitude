@@ -73,7 +73,7 @@ impl App {
                     }
                 }
             }
-            InteractionType::ModalSubmit => Ok(ModalInteraction::from_str(&body)?
+            InteractionType::ModalSubmit => Ok(SingleTextModalButtonInteraction::from_str(&body)?
                 .handle(thankful_kv, &mut client)
                 .await),
         }
