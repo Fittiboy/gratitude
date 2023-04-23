@@ -67,7 +67,10 @@ impl App {
                 .handle(&mut client, users_kv, thankful_kv)
                 .await),
             InteractionType::MessageComponent => {
-                match ComponentInteraction::from_str(&body)?.data.custom_id {
+                match ComponentIdentifyingInteraction::from_str(&body)?
+                    .data
+                    .custom_id
+                {
                     ComponentId::GratefulButton => {
                         return Ok(ButtonInteraction::from_str(&body)?.handle_grateful());
                     }

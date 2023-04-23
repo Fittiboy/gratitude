@@ -143,7 +143,7 @@ impl CommandInteraction {
             console_error!("Couldn't add user to list: {}", err);
             return InteractionResponse::error();
         }
-        let payload = XXMessageResponse::welcome();
+        let payload = Message::welcome();
         let client = client
             .post(&format!("channels/{}/messages", channel_id))
             .json(&payload);
@@ -441,7 +441,7 @@ impl ModalResponse {
 impl TextInput {
     pub fn new() -> Self {
         TextInput {
-            r#type: ComponentType::TextInput,
+            r#type: ModalComponentType::TextInput,
             custom_id: TextInputId::GratefulInput,
             style: 2,
             label: "Express your gratitude for something!".into(),
@@ -454,7 +454,7 @@ impl TextInput {
     }
 }
 
-impl SingleButtonResponse {
+impl SingleButtonMessage {
     pub fn welcome() -> Self {
         let content = Some(
             concat!(
@@ -466,7 +466,7 @@ impl SingleButtonResponse {
             )
             .to_string(),
         );
-        SingleButtonResponse {
+        SingleButtonMessage {
             content,
             components: [SingleButtonActionRow::entry_button()],
             ..Default::default()
@@ -619,14 +619,14 @@ impl SingleButtonActionRow {
 impl ActionRow {
     fn with_entry_button() -> Self {
         ActionRow {
-            r#type: ComponentType::ActionRow,
+            r#type: ActionRowType::ActionRow,
             components: vec![Component::Button(Button::entry())],
         }
     }
 
     fn with_text_entry() -> Self {
         ActionRow {
-            r#type: ComponentType::ActionRow,
+            r#type: ActionRowType::ActionRow,
             components: vec![Component::TextInput(TextInput::new())],
         }
     }
@@ -635,7 +635,7 @@ impl ActionRow {
 impl Button {
     fn entry() -> Self {
         Button {
-            r#type: ComponentType::Button,
+            r#type: InteractionComponentType::Button,
             style: 3,
             label: "What are you grateful for today?".into(),
             custom_id: ComponentId::GratefulButton,

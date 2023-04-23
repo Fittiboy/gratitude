@@ -3,32 +3,36 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-pub type PingInteraction = Interaction<PingData, Option<()>>;
-
+pub type PingInteraction = Interaction<PingData, NoComponent>;
 pub type CommandInteraction = Interaction<ApplicationCommandData, NoComponentMessage>;
-
 pub type ButtonInteraction = SingleComponentInteraction<Button>;
+pub type SingleTextModalButtonInteraction = SingleTextModalComponentInteraction<Button>;
+pub type ComponentIdentifyingInteraction = Interaction<ComponentIdentifier, GenericMessage>;
+
+pub type NoComponent = Option<()>;
+pub type NoComponentMessage = Message<NoComponent>;
 pub type SingleComponentInteraction<C> =
-    Interaction<ComponentIdentifier, SingleComponentResponse<C>>;
-pub type SingleButtonResponse = SingleComponentResponse<Button>;
-pub type NoComponentMessage = XXMessageResponse<Option<()>>;
-pub type SingleComponentResponse<C> = XXMessageResponse<[SingleComponentActionRow<C>; 1]>;
-pub type SingleButtonActionRow = SingleComponentActionRow<Button>;
-pub type SingleComponentActionRow<C> = XXActionRow<[C; 1]>;
-pub type ComponentInteraction = Interaction<ComponentIdentifier, Option<Value>>;
+    Interaction<ComponentIdentifier, SingleComponentMessage<C>>;
+pub type SingleTextModalComponentInteraction<C> =
+    SingleComponentModalInteraction<TextInputSubmit, C>;
+pub type GenericMessage = Option<Value>;
 
-pub type SingleTextModalButtonInteraction = SingleTextModalInteraction<Button>;
-pub type SingleTextModalInteraction<B> = SingleComponentModalInteraction<TextInputSubmit, B>;
+pub type SingleComponentMessage<C> = Message<[SingleComponentActionRow<C>; 1]>;
 pub type SingleComponentModalInteraction<C, B> =
-    Interaction<SingleComponentModalSubmit<C>, SingleComponentResponse<B>>;
-pub type SingleComponentModalSubmit<C> = ModalSubmitData<SingleComponentActionRow<[C; 1]>>;
+    Interaction<SingleComponentModalSubmit<C>, SingleComponentMessage<B>>;
 
-#[derive(Debug, Deserialize, Serialize)]
+pub type SingleComponentActionRow<C> = XXActionRow<[C; 1]>;
+pub type SingleComponentModalSubmit<C> = ModalSubmitData<SingleComponentActionRow<[C; 1]>>;
+pub type SingleButtonActionRow = SingleComponentActionRow<Button>;
+
+pub type SingleButtonMessage = SingleComponentMessage<Button>;
+
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct InteractionIdentifier {
     pub r#type: InteractionType,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Interaction<T, C> {
     pub data: T,
     pub token: String,
@@ -39,16 +43,17 @@ pub struct Interaction<T, C> {
     pub user: Option<User>,
 }
 
-#[derive(Debug, Deserialize_repr, Serialize_repr)]
+#[derive(Debug, Default, Deserialize_repr, Serialize_repr)]
 #[repr(u8)]
 pub enum InteractionType {
+    #[default]
     Ping = 1,
     ApplicationCommand = 2,
     MessageComponent = 3,
     ModalSubmit = 5,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct PingData;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -64,30 +69,20 @@ pub enum ComponentId {
     GratefulButton,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 #[allow(clippy::enum_variant_names)]
 pub enum ModalId {
+    #[default]
     #[serde(rename = "grateful_modal")]
     GratefulModal,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 #[allow(clippy::enum_variant_names)]
 pub enum TextInputId {
+    #[default]
     #[serde(rename = "grateful_input")]
     GratefulInput,
-}
-
-#[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
-#[repr(u8)]
-pub enum InteractionComponentType {
-    Button = 2,
-}
-
-#[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
-#[repr(u8)]
-pub enum InteractionModalSubmitType {
-    TextInput = 4,
 }
 
 #[derive(Debug, Default, Deserialize_repr, Serialize_repr, Clone)]
@@ -99,14 +94,19 @@ pub enum ActionRowType {
 
 #[derive(Debug, Default, Deserialize_repr, Serialize_repr, Clone)]
 #[repr(u8)]
-pub enum ComponentType {
+pub enum InteractionComponentType {
     #[default]
-    ActionRow = 1,
     Button = 2,
+}
+
+#[derive(Debug, Default, Deserialize_repr, Serialize_repr, Clone)]
+#[repr(u8)]
+pub enum ModalComponentType {
+    #[default]
     TextInput = 4,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct ModalSubmitData<C> {
     pub custom_id: ModalId,
     pub components: C,
@@ -118,9 +118,9 @@ pub struct XXActionRow<C> {
     pub components: C,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct ActionRow {
-    pub r#type: ComponentType,
+    pub r#type: ActionRowType,
     pub components: Vec<Component>,
 }
 
@@ -132,18 +132,24 @@ pub enum Component {
     TextInputSubmit(TextInputSubmit),
 }
 
+impl Default for Component {
+    fn default() -> Self {
+        Self::Button(Default::default())
+    }
+}
+
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct Button {
-    pub r#type: ComponentType,
+    pub r#type: InteractionComponentType,
     pub style: u8,
     pub label: String,
     pub custom_id: ComponentId,
     pub disabled: Option<bool>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct TextInput {
-    pub r#type: ComponentType,
+    pub r#type: ModalComponentType,
     pub custom_id: TextInputId,
     pub style: u8,
     pub label: String,
@@ -152,14 +158,14 @@ pub struct TextInput {
     pub placeholder: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct TextInputSubmit {
-    pub r#type: ComponentType,
+    pub r#type: ModalComponentType,
     pub custom_id: TextInputId,
     pub value: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct ApplicationCommandData {
     pub id: String,
     pub name: CommandName,
@@ -169,8 +175,9 @@ pub struct ApplicationCommandData {
     pub target_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub enum CommandName {
+    #[default]
     #[serde(rename = "help")]
     Help,
     #[serde(rename = "start")]
@@ -181,15 +188,16 @@ pub enum CommandName {
     Entry,
 }
 
-#[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
+#[derive(Debug, Default, Deserialize_repr, Serialize_repr, Clone)]
 #[repr(u8)]
 pub enum CommandType {
+    #[default]
     ChatInput = 1,
     User = 2,
     Message = 3,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct OptionData {
     pub name: String,
     pub r#type: OptionType,
@@ -197,11 +205,12 @@ pub struct OptionData {
     pub options: Option<Vec<OptionData>>,
 }
 
-#[derive(Debug, Deserialize_repr, Serialize_repr, Clone)]
+#[derive(Debug, Default, Deserialize_repr, Serialize_repr, Clone)]
 #[repr(u8)]
 pub enum OptionType {
     SubCommand = 1,
     SubCommandGroup = 2,
+    #[default]
     r#String = 3,
     Integer = 4,
     Boolean = 5,
@@ -222,7 +231,13 @@ pub enum OptionValue {
     Bool(bool),
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+impl Default for OptionValue {
+    fn default() -> Self {
+        Self::r#String(Default::default())
+    }
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct Member {
     pub user: Option<User>,
     pub nick: Option<String>,
@@ -238,36 +253,43 @@ pub struct Member {
     pub communication_disabled_until: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct User {
     pub id: String,
     pub username: String,
     pub discriminator: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct InteractionResponse {
     pub r#type: InteractionResponseType,
     pub data: Option<InteractionResponseData>,
 }
 
-#[derive(Serialize_repr, Deserialize_repr)]
+#[derive(Debug, Default, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 pub enum InteractionResponseType {
+    #[default]
     Pong = 1,
     ChannelMessageWithSource = 4,
     ACKWithSource = 5,
     Modal = 9,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum InteractionResponseData {
-    Modal(ModalResponse),
     Message(MessageResponse),
+    Modal(ModalResponse),
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+impl Default for InteractionResponseData {
+    fn default() -> Self {
+        Self::Message(Default::default())
+    }
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct ModalResponse {
     pub custom_id: ModalId,
     pub title: String,
@@ -275,7 +297,7 @@ pub struct ModalResponse {
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
-pub struct XXMessageResponse<C> {
+pub struct Message<C> {
     pub id: Option<String>,
     pub channel_id: Option<String>,
     pub content: Option<String>,
@@ -292,26 +314,27 @@ pub struct MessageResponse {
     pub components: Option<Vec<ActionRow>>,
 }
 
-#[derive(Debug, Serialize)]
-pub struct XXMessageEditResponse<C> {
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct ComponentEdit<C> {
     pub components: C,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct MessageEditResponse {
     pub components: Vec<ActionRow>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Channel {
     pub id: String,
     pub r#type: ChannelType,
     pub guild_id: Option<String>,
 }
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, Clone)]
+#[derive(Debug, Default, Serialize_repr, Deserialize_repr, Clone)]
 #[repr(u8)]
 pub enum ChannelType {
+    #[default]
     GuildText = 0,
     Dm = 1,
     GuildVoice = 2,
