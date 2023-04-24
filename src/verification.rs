@@ -2,7 +2,7 @@ use ed25519_dalek::{PublicKey, Signature, SignatureError, Verifier};
 use hex::FromHexError;
 
 #[derive(Debug, thiserror::Error)]
-pub enum VerificationError {
+pub enum Error {
     #[error("Failed to parse from hex.")]
     ParseHexFailed(#[from] FromHexError),
 
@@ -18,19 +18,15 @@ pub fn verify_signature(
     signature: &str,
     timestamp: &str,
     body: &str,
-) -> Result<(), VerificationError> {
+) -> Result<(), Error> {
     let public_key = &hex::decode(public_key)
-        .map_err(VerificationError::ParseHexFailed)
-        .and_then(|bytes| {
-            PublicKey::from_bytes(&bytes).map_err(VerificationError::InvalidSignature)
-        })?;
+        .map_err(Error::ParseHexFailed)
+        .and_then(|bytes| PublicKey::from_bytes(&bytes).map_err(Error::InvalidSignature))?;
 
     Ok(public_key.verify(
         format!("{}{}", timestamp, body).as_bytes(),
         &hex::decode(signature)
-            .map_err(VerificationError::ParseHexFailed)
-            .and_then(|bytes| {
-                Signature::from_bytes(&bytes).map_err(VerificationError::InvalidSignature)
-            })?,
+            .map_err(Error::ParseHexFailed)
+            .and_then(|bytes| Signature::from_bytes(&bytes).map_err(Error::InvalidSignature))?,
     )?)
 }

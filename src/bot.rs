@@ -6,7 +6,6 @@ use crate::interaction::{
     MarkDeserialize, PingInteraction, SingleTextModalButtonInteraction,
 };
 use crate::verification::verify_signature;
-use http::HttpError;
 use worker::Response as Res;
 use worker::{console_log, Request, RouteContext};
 
@@ -50,7 +49,7 @@ impl App {
         Ok(body)
     }
 
-    pub async fn handle_request(&mut self) -> Result<Res, HttpError> {
+    pub async fn handle_request(&mut self) -> Result<Res, http::Error> {
         let body = self.validate_sig().await?;
         let thankful_kv = self
             .ctx

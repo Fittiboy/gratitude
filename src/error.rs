@@ -1,4 +1,4 @@
-use crate::verification::VerificationError;
+use crate::verification;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -15,7 +15,7 @@ pub enum Error {
     InvalidPayload(String),
 
     #[error("Verification failed.")]
-    VerificationFailed(VerificationError),
+    VerificationFailed(verification::Error),
 
     #[error("Worker error: {0}.")]
     Worker(#[from] worker::Error),
