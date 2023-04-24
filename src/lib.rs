@@ -56,7 +56,7 @@ pub async fn scheduled(event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     let mut client = discord::Client::new(token);
     commands::update(&env, &mut client).await;
 
-    if event.cron() != "TEST".to_string() {
+    if event.cron() != *"TEST" {
         let entries_kv = env
             .kv("thankful")
             .expect("Worker should have access to thankful binding");

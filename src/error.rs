@@ -18,11 +18,5 @@ pub enum Error {
     VerificationFailed(VerificationError),
 
     #[error("Worker error: {0}.")]
-    WorkerError(worker::Error),
-}
-
-impl From<worker::Error> for Error {
-    fn from(error: worker::Error) -> Self {
-        Self::WorkerError(error)
-    }
+    Worker(#[from] worker::Error),
 }

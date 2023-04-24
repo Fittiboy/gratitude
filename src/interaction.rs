@@ -7,6 +7,9 @@ use crate::users::BotUser;
 pub mod data_types;
 pub use data_types::*;
 
+mod command_handler;
+use command_handler::CommandHandler;
+
 impl PingInteraction {
     pub async fn handle(&self) -> InteractionResponse<NoResponseData> {
         InteractionResponse {
@@ -19,13 +22,13 @@ impl PingInteraction {
 impl CommandInteraction {
     pub async fn handle(
         &self,
-        client: &mut discord::Client,
+        mut client: discord::Client,
         users_kv: KvStore,
         thankful_kv: KvStore,
     ) -> SimpleMessageResponse {
-        let (user_id, mut channel_id) = self.ids();
+        let (uid, mut channel_id) = self.ids();
         if channel_id.is_empty() {
-            channel_id = match self.dm_channel(&user_id, client).await {
+            channel_id = match self.dm_channel(&uid, &mut client).await {
                 Some(id) => id,
                 None => return SimpleMessageResponse::error(),
             }
@@ -41,29 +44,28 @@ impl CommandInteraction {
                 return SimpleMessageResponse::error();
             }
         };
-        let user = BotUser {
-            uid: user_id.clone(),
-            channel_id: channel_id.clone(),
-        };
+        let user = BotUser { uid, channel_id };
         let add_key = format!("ADD {}", to_string(&user).unwrap());
-        let delete_key = format!("DELETE {}", user_id);
+        let delete_key = format!("DELETE {}", &user.uid);
+
+        let mut handler = CommandHandler {
+            user,
+            client,
+            users_kv,
+            thankful_kv,
+            add_key,
+            delete_key,
+            users,
+        };
 
         match self.data.name {
-            CommandName::Start => {
-                self.handle_start(
-                    client, users_kv, user_id, channel_id, add_key, delete_key, users,
-                )
-                .await
-            }
-            CommandName::Stop => {
-                self.handle_stop(
-                    client, users_kv, user_id, channel_id, add_key, delete_key, users,
-                )
-                .await
-            }
+            CommandName::Start => handler.handle_start().await,
+            CommandName::Stop => handler.handle_stop().await,
             CommandName::Entry => {
-                self.handle_entry(client, channel_id, user_id, thankful_kv)
-                    .await
+                console_log!("Handling entry");
+                let entry = self.entry();
+                self.add_entry(&handler.thankful_kv, &entry).await;
+                handler.handle_entry(&entry).await
             }
             CommandName::Help => SimpleMessageResponse::help(),
         }
@@ -96,7 +98,7 @@ impl CommandInteraction {
 
     pub async fn dm_channel(&self, user_id: &str, client: &mut discord::Client) -> Option<String> {
         let mut channel_payload = std::collections::HashMap::new();
-        channel_payload.insert("recipient_id", user_id.clone());
+        channel_payload.insert("recipient_id", user_id);
         let response = client
             .post("users/@me/channels")
             .json(&channel_payload)
@@ -110,126 +112,12 @@ impl CommandInteraction {
             }
         };
         match channel {
-            Ok(channel) => {
-                return Some(channel.id);
-            }
+            Ok(channel) => Some(channel.id),
             Err(err) => {
                 console_error!("Couldn't get DM channel: {}", err);
-                return None;
+                None
             }
         }
-    }
-
-    async fn handle_start(
-        &self,
-        client: &mut discord::Client,
-        kv: KvStore,
-        user_id: String,
-        channel_id: String,
-        add_key: String,
-        delete_key: String,
-        users: Vec<BotUser>,
-    ) -> SimpleMessageResponse {
-        console_log!("Handling start!");
-        if kv.get(&delete_key).text().await.unwrap().is_some() {
-            if let Err(err) = kv.delete(&delete_key).await {
-                console_error!("Couldn't remove delete key from kv: {}", err);
-                return SimpleMessageResponse::error();
-            }
-        } else if users.iter().any(|user| user.uid == user_id)
-            || kv.get(&add_key).text().await.unwrap().is_some()
-        {
-            return SimpleMessageResponse::already_active();
-        } else if let Err(err) = kv.put(&add_key, "FOOP").unwrap().execute().await {
-            console_error!("Couldn't add user to list: {}", err);
-            return SimpleMessageResponse::error();
-        }
-        let payload = Message::welcome();
-        let client = client
-            .post(&format!("channels/{}/messages", channel_id))
-            .json(&payload);
-        if let Err(error) = client.send().await.unwrap().error_for_status() {
-            console_error!("Error sending message to user {}: {}", user_id, error);
-            return SimpleMessageResponse::dms_closed();
-        }
-        console_log!("New user: {:?}", user_id);
-
-        SimpleMessageResponse::success()
-    }
-
-    async fn handle_stop(
-        &self,
-        client: &mut discord::Client,
-        kv: KvStore,
-        user_id: String,
-        channel_id: String,
-        add_key: String,
-        delete_key: String,
-        mut users: Vec<BotUser>,
-    ) -> SimpleMessageResponse {
-        console_log!("Handling stop!");
-        if kv.get(&add_key).text().await.unwrap().is_some() {
-            if let Err(err) = kv.delete(&add_key).await {
-                console_error!("Couldn't remove delete key from kv: {}", err);
-                return SimpleMessageResponse::error();
-            }
-        } else if !users.iter().any(|user| user.uid == user_id)
-            || kv.get(&delete_key).text().await.unwrap().is_some()
-        {
-            return SimpleMessageResponse::not_active();
-        } else {
-            let original_length = users.len();
-            users.retain(|user| user.uid != user_id);
-            let length_after = users.len();
-            if original_length - 1 != length_after {
-                console_error!(
-                    "Length after removing not one less. Old: {}, New: {}",
-                    original_length,
-                    length_after
-                );
-                return SimpleMessageResponse::error();
-            } else if let Err(err) = kv.put(&delete_key, "POOF").unwrap().execute().await {
-                console_error!("Couldn't remove user from list: {}", err);
-                return SimpleMessageResponse::error();
-            }
-        }
-
-        let payload = NoComponentMessage::goodbye();
-        let client = client
-            .post(&format!("channels/{}/messages", channel_id))
-            .json(&payload);
-        if let Err(error) = client.send().await.unwrap().error_for_status() {
-            console_error!("Error sending message to user {}: {}", user_id, error);
-            return SimpleMessageResponse::dms_closed();
-        }
-        console_log!("User removed: {:?}", user_id);
-
-        SimpleMessageResponse::success()
-    }
-
-    async fn handle_entry(
-        &self,
-        client: &mut discord::Client,
-        channel_id: String,
-        user_id: String,
-        thankful_kv: KvStore,
-    ) -> SimpleMessageResponse {
-        console_log!("Handling entry");
-        let entry = self.entry();
-        self.add_entry(thankful_kv, &entry).await;
-        let payload = NoComponentMessage {
-            content: Some(format!("__**You added the following entry:**__\n{}", entry)),
-            ..Default::default()
-        };
-        let client = client
-            .post(&format!("channels/{}/messages", channel_id))
-            .json(&payload);
-        if let Err(error) = client.send().await.unwrap().error_for_status() {
-            console_error!("Error sending message to user {}: {}", user_id, error);
-            return SimpleMessageResponse::dms_closed();
-        }
-
-        SimpleMessageResponse::success()
     }
 
     fn entry(&self) -> String {
@@ -238,7 +126,7 @@ impl CommandInteraction {
         value.to_owned()
     }
 
-    async fn add_entry(&self, thankful_kv: KvStore, entry: &str) {
+    async fn add_entry(&self, thankful_kv: &KvStore, entry: &str) {
         let id = match self.user.as_ref() {
             Some(User { id, .. }) => id,
             None => match self.member {
@@ -246,7 +134,7 @@ impl CommandInteraction {
                 None => unreachable!("There should always be a member or a user!"),
             },
         };
-        let mut entries = self.get_entries(&thankful_kv, id).await;
+        let mut entries = self.get_entries(thankful_kv, id).await;
         entries.push(entry.to_string());
         thankful_kv
             .put(id, entries)
@@ -476,6 +364,12 @@ impl SingleButtonMessage {
 }
 
 impl NoComponentMessage {
+    pub fn from_entry(entry: &str) -> Self {
+        NoComponentMessage {
+            content: Some(format!("__**You added the following entry:**__\n{}", entry)),
+            ..Default::default()
+        }
+    }
     pub fn not_implemented() -> Self {
         Self {
             content: Some("This command is not yet implemented! Coming soon!".into()),

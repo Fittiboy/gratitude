@@ -68,7 +68,7 @@ impl App {
             )?),
             InteractionType::ApplicationCommand => Ok(Res::from_json(
                 &CommandInteraction::from_str(&body)?
-                    .handle(&mut client, users_kv, thankful_kv)
+                    .handle(client, users_kv, thankful_kv)
                     .await,
             )?),
             InteractionType::MessageComponent => {
