@@ -5,7 +5,7 @@ use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 use worker::kv::KvStore;
-use worker::*;
+use worker::{console_error, console_log, kv};
 
 pub async fn registered(kv: &KvStore) -> Vec<BotUser> {
     kv.get("users")

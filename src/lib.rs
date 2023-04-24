@@ -1,5 +1,8 @@
 #![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
-use worker::*;
+use worker::{
+    console_error, console_log, event, Context, Env, Request, Response, Result, Router,
+    ScheduleContext, ScheduledEvent,
+};
 
 mod bot;
 mod commands;

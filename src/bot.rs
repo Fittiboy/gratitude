@@ -1,6 +1,10 @@
 use crate::discord;
 use crate::error::Error;
-use crate::interaction::data_types::*;
+use crate::interaction::data_types::{CustomId, InteractionType};
+use crate::interaction::{
+    ButtonInteraction, CommandInteraction, ComponentIdentifier, InteractionIdentifier,
+    MarkDeserialize, PingInteraction, SingleTextModalButtonInteraction,
+};
 use crate::verification::verify_signature;
 use http::HttpError;
 use worker::Response as Res;
