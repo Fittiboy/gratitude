@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use worker::{console_debug, console_error, console_log, Env, Result};
+use worker::{console_debug, console_error, console_log, Env};
 
 use crate::discord;
 use crate::interaction::{CommandName, CommandType, OptionType};
@@ -8,7 +8,7 @@ pub async fn update(env: &Env, client: &mut discord::Client) {
     let application_id = env.var("DISCORD_APPLICATION_ID").unwrap().to_string();
 
     let mut registered = ApplicationCommand::registered(&application_id, client).await;
-    let mut available = ApplicationCommand::globals(&application_id).unwrap();
+    let mut available = ApplicationCommand::globals(&application_id);
     let available_clone = available.clone();
 
     available.retain(|c| !registered.has(c));
@@ -47,8 +47,8 @@ impl HasCommand for Vec<ApplicationCommand> {
 
 #[allow(dead_code)]
 impl ApplicationCommand {
-    pub fn globals(application_id: &str) -> Result<Vec<Self>> {
-        Ok(vec![
+    pub fn globals(application_id: &str) -> Vec<Self> {
+        vec![
             Self {
                 name: CommandName::Help,
                 application_id: application_id.to_string(),
@@ -85,7 +85,7 @@ impl ApplicationCommand {
                 dm_permission: Some(true),
                 ..Default::default()
             },
-        ])
+        ]
     }
 
     pub async fn registered(application_id: &str, client: &mut discord::Client) -> Vec<Self> {

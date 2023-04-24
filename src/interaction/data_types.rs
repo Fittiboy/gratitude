@@ -220,7 +220,7 @@ pub enum OptionValue {
 
 impl Default for OptionValue {
     fn default() -> Self {
-        Self::r#String(Default::default())
+        Self::r#String(String::default())
     }
 }
 

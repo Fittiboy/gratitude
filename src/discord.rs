@@ -5,7 +5,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(token: String) -> Self {
+    pub fn new(token: &str) -> Self {
         let headers = Self::headers(token);
         let client = reqwest::Client::builder()
             .default_headers(headers)
@@ -34,9 +34,9 @@ impl Client {
         self.client.delete(url)
     }
 
-    fn headers(token: String) -> header::HeaderMap {
+    fn headers(token: &str) -> header::HeaderMap {
         let mut headers = header::HeaderMap::new();
-        let auth_value = header::HeaderValue::from_str(&token).unwrap();
+        let auth_value = header::HeaderValue::from_str(token).unwrap();
         headers.insert(header::AUTHORIZATION, auth_value);
         headers
     }

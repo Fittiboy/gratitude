@@ -48,7 +48,7 @@ impl CommandHandler {
             }
         } else if self.not_active().await {
             return SimpleMessageResponse::not_active();
-        } else if (self.drop_user().await).is_err() {
+        } else if (self.drop_user()).is_err() {
             return SimpleMessageResponse::error();
         } else if let Err(err) = self.insert_delete().await {
             console_error!("Couldn't remove user from list: {}", err);
@@ -134,33 +134,33 @@ impl CommandHandler {
                 .is_some()
     }
 
-    pub async fn drop_user(&mut self) -> Result<(), CommandHandlerError> {
+    pub fn drop_user(&mut self) -> Result<(), HandlerError> {
         let before = self.users.len();
         self.users.retain(|user| user.uid != self.user.uid);
         let after = self.users.len();
-        if before - 1 != after {
-            Err(CommandHandlerError::DropUser { before, after })
-        } else {
+        if before - 1 == after {
             Ok(())
+        } else {
+            Err(HandlerError::DropUser { before, after })
         }
     }
 
-    pub async fn notify_start(&mut self) -> Result<(), CommandHandlerError<'_>> {
+    pub async fn notify_start(&mut self) -> Result<(), HandlerError<'_>> {
         let payload = Message::welcome();
         self.notify(payload).await
     }
 
-    pub async fn notify_stop(&mut self) -> Result<(), CommandHandlerError<'_>> {
+    pub async fn notify_stop(&mut self) -> Result<(), HandlerError<'_>> {
         let payload = Message::goodbye();
         self.notify(payload).await
     }
 
-    pub async fn notify_entry(&mut self, entry: &str) -> Result<(), CommandHandlerError<'_>> {
+    pub async fn notify_entry(&mut self, entry: &str) -> Result<(), HandlerError<'_>> {
         let payload = NoComponentMessage::from_entry(entry);
         self.notify(payload).await
     }
 
-    pub async fn notify<T>(&mut self, payload: Message<T>) -> Result<(), CommandHandlerError<'_>>
+    pub async fn notify<T>(&mut self, payload: Message<T>) -> Result<(), HandlerError<'_>>
     where
         T: serde::Serialize,
     {
@@ -169,7 +169,7 @@ impl CommandHandler {
             .post(&format!("channels/{}/messages", self.user.channel_id))
             .json(&payload);
         if let Err(error) = client.send().await.unwrap().error_for_status() {
-            let error = CommandHandlerError::Notify {
+            let error = HandlerError::Notify {
                 uid: &self.user.uid,
                 error: error.to_string(),
             };
@@ -182,12 +182,12 @@ impl CommandHandler {
 }
 
 #[derive(Debug)]
-pub enum CommandHandlerError<'a> {
+pub enum HandlerError<'a> {
     DropUser { before: usize, after: usize },
     Notify { uid: &'a str, error: String },
 }
 
-impl fmt::Display for CommandHandlerError<'_> {
+impl fmt::Display for HandlerError<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::DropUser { before, after } => {
@@ -204,4 +204,4 @@ impl fmt::Display for CommandHandlerError<'_> {
     }
 }
 
-impl std::error::Error for CommandHandlerError<'_> {}
+impl std::error::Error for HandlerError<'_> {}

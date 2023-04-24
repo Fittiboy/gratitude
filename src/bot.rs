@@ -40,7 +40,7 @@ impl App {
             .req
             .text()
             .await
-            .map_err(|_| Error::InvalidPayload("".into()))?;
+            .map_err(|_| Error::InvalidPayload(String::new()))?;
         verify_signature(&pubkey, &signature, &timestamp, &body)
             .map_err(Error::VerificationFailed)?;
         Ok(body)
@@ -53,7 +53,7 @@ impl App {
             .env
             .kv("thankful")
             .expect("Worker should have access to thankful binding");
-        let mut client = discord::Client::new(discord::token(&self.ctx.env).unwrap());
+        let mut client = discord::Client::new(&discord::token(&self.ctx.env).unwrap());
         let users_kv = self
             .ctx
             .env
@@ -63,9 +63,7 @@ impl App {
         console_log!("Request body : {}", body);
 
         match InteractionIdentifier::from_str(&body)?.r#type {
-            InteractionType::Ping => Ok(Res::from_json(
-                &PingInteraction::from_str(&body)?.handle().await,
-            )?),
+            InteractionType::Ping => Ok(Res::from_json(&PingInteraction::handle())?),
             InteractionType::ApplicationCommand => Ok(Res::from_json(
                 &CommandInteraction::from_str(&body)?
                     .handle(client, users_kv, thankful_kv)

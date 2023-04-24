@@ -1,3 +1,9 @@
+#![allow(
+    clippy::wildcard_imports,
+    clippy::module_name_repetitions,
+    clippy::missing_panics_doc,
+    clippy::missing_errors_doc
+)]
 use worker::*;
 
 mod bot;
@@ -53,7 +59,7 @@ pub async fn scheduled(event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     users::update(&mut users, &users_kv).await;
 
     let token = discord::token(&env).unwrap();
-    let mut client = discord::Client::new(token);
+    let mut client = discord::Client::new(&token);
     commands::update(&env, &mut client).await;
 
     if event.cron() != *"TEST" {

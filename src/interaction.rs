@@ -11,7 +11,7 @@ mod command_handler;
 use command_handler::CommandHandler;
 
 impl PingInteraction {
-    pub async fn handle(&self) -> InteractionResponse<NoResponseData> {
+    pub fn handle() -> InteractionResponse<NoResponseData> {
         InteractionResponse {
             r#type: InteractionResponseType::Pong,
             data: None,
@@ -123,7 +123,7 @@ impl CommandInteraction {
     fn entry(&self) -> String {
         let OptionData { value, .. } = self.data.options.as_ref().unwrap().first().unwrap();
         let OptionValue::String(ref value) = value.as_ref().unwrap() else { unreachable!("Value guaranteed by Discord") };
-        value.to_owned()
+        value.clone()
     }
 
     async fn add_entry(&self, thankful_kv: &KvStore, entry: &str) {
@@ -167,7 +167,7 @@ impl ButtonInteraction {
         console_log!("Handling button!");
         SingleTextInputModalResponse {
             r#type: InteractionResponseType::Modal,
-            data: ModalResponse::with_name(name),
+            data: ModalResponse::with_name(&name),
         }
     }
 }
@@ -303,7 +303,7 @@ impl SimpleMessageResponse {
 }
 
 impl SingleTextInputModalData {
-    pub fn with_name(name: String) -> Self {
+    pub fn with_name(name: &str) -> Self {
         Self {
             custom_id: ModalId::GratefulModal,
             title: format!("{}'s Gratitude Journal", name),
