@@ -1,14 +1,11 @@
 use crate::error::General;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 pub type PingInteraction = Interaction<PingData, NoMessage>;
 pub type CommandInteraction = Interaction<ApplicationCommandData, NoMessage>;
 pub type ButtonInteraction = SingleComponentInteraction<Button>;
 pub type SingleTextModalButtonInteraction = SingleTextModalComponentInteraction<Button>;
-pub type InteractionIdentifier = Interaction<GenericData, GenericMessage>;
-pub type ComponentIdentifier = Interaction<ComponentIdData, GenericMessage>;
 
 pub type NoComponent = Option<()>;
 pub type NoMessage = Option<()>;
@@ -17,8 +14,6 @@ pub type NoComponentMessage = Message<NoComponent>;
 pub type SingleComponentInteraction<C> = Interaction<ComponentIdData, SingleComponentMessage<C>>;
 pub type SingleTextModalComponentInteraction<C> =
     SingleComponentModalInteraction<TextInputSubmit, C>;
-pub type GenericData = Option<Value>;
-pub type GenericMessage = Option<Value>;
 pub type SingleButtonMessage = SingleComponentMessage<Button>;
 
 pub type SingleComponentMessage<C> = Message<[SingleComponentActionRow<C>; 1]>;
@@ -35,6 +30,21 @@ pub type SingleTextInputModalData = SingleComponentModalResponse<TextInput>;
 pub type SingleComponentActionRow<C> = ActionRow<[C; 1]>;
 pub type SingleComponentModalResponse<C> = ModalResponse<[SingleComponentActionRow<C>; 1]>;
 pub type SingleComponentModalSubmit<C> = ModalSubmitData<[SingleComponentActionRow<C>; 1]>;
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum InteractionVariants {
+    Ping(PingInteraction),
+    Command(CommandInteraction),
+    Button(ButtonInteraction),
+    Modal(SingleTextModalButtonInteraction),
+}
+
+impl Default for InteractionVariants {
+    fn default() -> Self {
+        Self::Ping(PingInteraction::default())
+    }
+}
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Interaction<D, M> {

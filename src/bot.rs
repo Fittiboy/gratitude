@@ -1,11 +1,8 @@
 use crate::discord;
 use crate::error;
-use crate::interaction::data_types::{CustomId, InteractionType};
-use crate::interaction::{
-    ButtonInteraction, CommandInteraction, ComponentIdentifier, InteractionIdentifier,
-    MarkDeserialize, PingInteraction, SingleTextModalButtonInteraction,
-};
+use crate::interaction::data_types::{InteractionVariants, PingInteraction};
 use crate::verification::verify_signature;
+use serde_json::from_str;
 use worker::Response as Res;
 use worker::{console_log, Request, RouteContext};
 
@@ -54,7 +51,7 @@ impl App {
             .env
             .kv("thankful")
             .expect("Worker should have access to thankful binding");
-        let mut client = discord::Client::new(&discord::token(&self.ctx.env).unwrap());
+        let client = discord::Client::new(&discord::token(&self.ctx.env).unwrap());
         let users_kv = self
             .ctx
             .env
@@ -63,25 +60,15 @@ impl App {
 
         console_log!("Request body : {}", body);
 
-        match InteractionIdentifier::from_str(&body)?.r#type {
-            InteractionType::Ping => Ok(Res::from_json(&PingInteraction::handle())?),
-            InteractionType::ApplicationCommand => Ok(Res::from_json(
-                &CommandInteraction::from_str(&body)?
-                    .handle(client, users_kv, thankful_kv)
-                    .await,
+        match from_str::<InteractionVariants>(&body).map_err(error::General::from)? {
+            InteractionVariants::Ping(_) => Ok(Res::from_json(&PingInteraction::handle())?),
+            InteractionVariants::Command(i) => Ok(Res::from_json(
+                &i.handle(client, users_kv, thankful_kv).await,
             )?),
-            InteractionType::MessageComponent => {
-                match ComponentIdentifier::from_str(&body)?.data.custom_id {
-                    CustomId::GratefulButton => Ok(Res::from_json(
-                        &ButtonInteraction::from_str(&body)?.handle_grateful(),
-                    )?),
-                }
+            InteractionVariants::Button(i) => Ok(Res::from_json(&i.handle_grateful())?),
+            InteractionVariants::Modal(mut i) => {
+                Ok(Res::from_json(&i.handle(thankful_kv, client).await)?)
             }
-            InteractionType::ModalSubmit => Ok(Res::from_json(
-                &SingleTextModalButtonInteraction::from_str(&body)?
-                    .handle(thankful_kv, &mut client)
-                    .await,
-            )?),
         }
     }
 }

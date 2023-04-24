@@ -176,7 +176,7 @@ impl SingleTextModalButtonInteraction {
     pub async fn handle(
         &mut self,
         thankful_kv: KvStore,
-        client: &mut discord::Client,
+        client: discord::Client,
     ) -> SimpleMessageResponse {
         self.add_entry(thankful_kv).await;
         self.disable_button(client).await;
@@ -227,12 +227,12 @@ impl SingleTextModalButtonInteraction {
         &self.data.components[0].components[0].value
     }
 
-    async fn disable_button(&mut self, client: &mut discord::Client) {
+    async fn disable_button(&mut self, client: discord::Client) {
         self.message.components[0].components[0].disabled = Some(true);
         self.submit_disable_button_request(client).await;
     }
 
-    async fn submit_disable_button_request(&self, client: &mut discord::Client) {
+    async fn submit_disable_button_request(&self, mut client: discord::Client) {
         if let Err(error) = client
             .patch(&format!(
                 "channels/{}/messages/{}",
