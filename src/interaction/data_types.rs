@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::error::General;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -305,14 +305,14 @@ pub enum ChannelType {
 }
 
 pub trait Response: Serialize {
-    fn as_string(&self) -> Result<String, Error>;
+    fn as_string(&self) -> Result<String, General>;
 }
 impl<T> Response for InteractionResponse<T>
 where
     T: Serialize,
 {
-    fn as_string(&self) -> Result<String, Error> {
-        serde_json::to_string(self).map_err(Error::JsonFailed)
+    fn as_string(&self) -> Result<String, General> {
+        serde_json::to_string(self).map_err(General::JsonFailed)
     }
 }
 
@@ -320,11 +320,11 @@ pub trait MarkDeserialize<'a>
 where
     Self: Sized,
 {
-    fn from_str(string: &'a str) -> Result<Self, Error>;
+    fn from_str(string: &'a str) -> Result<Self, General>;
 }
 
 impl<'a, T: Deserialize<'a>> MarkDeserialize<'a> for T {
-    fn from_str(string: &'a str) -> Result<Self, Error> {
-        serde_json::from_str::<Self>(string).map_err(Error::JsonFailed)
+    fn from_str(string: &'a str) -> Result<Self, General> {
+        serde_json::from_str::<Self>(string).map_err(General::JsonFailed)
     }
 }

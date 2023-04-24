@@ -1,5 +1,5 @@
 use crate::discord;
-use crate::error::Error;
+use crate::error;
 use crate::interaction::data_types::{CustomId, InteractionType};
 use crate::interaction::{
     ButtonInteraction, CommandInteraction, ComponentIdentifier, InteractionIdentifier,
@@ -8,8 +8,6 @@ use crate::interaction::{
 use crate::verification::verify_signature;
 use worker::Response as Res;
 use worker::{console_log, Request, RouteContext};
-
-mod http;
 
 pub struct App {
     req: Request,
@@ -21,20 +19,20 @@ impl App {
         App { req, ctx }
     }
 
-    fn var(&self, key: &str) -> Result<String, Error> {
+    fn var(&self, key: &str) -> Result<String, error::General> {
         match self.ctx.var(key) {
             Ok(var) => Ok(var.to_string()),
-            Err(_) => Err(Error::EnvironmentVariableNotFound(key.to_string())),
+            Err(_) => Err(error::General::EnvironmentVariableNotFound(key.to_string())),
         }
     }
-    fn header(&self, key: &str) -> Result<String, Error> {
+    fn header(&self, key: &str) -> Result<String, error::General> {
         match self.req.headers().get(key) {
-            Ok(val) => val.ok_or_else(|| Error::HeaderNotFound(key.to_string())),
-            Err(_) => Err(Error::HeaderNotFound(key.to_string())),
+            Ok(val) => val.ok_or_else(|| error::General::HeaderNotFound(key.to_string())),
+            Err(_) => Err(error::General::HeaderNotFound(key.to_string())),
         }
     }
 
-    async fn validate_sig(&mut self) -> Result<String, Error> {
+    async fn validate_sig(&mut self) -> Result<String, error::General> {
         let pubkey = self.var("DISCORD_PUBLIC_KEY")?;
         let signature = self.header("x-signature-ed25519")?;
         let timestamp = self.header("x-signature-timestamp")?;
@@ -43,13 +41,13 @@ impl App {
             .req
             .text()
             .await
-            .map_err(|_| Error::InvalidPayload(String::new()))?;
+            .map_err(|_| error::General::InvalidPayload(String::new()))?;
         verify_signature(&pubkey, &signature, &timestamp, &body)
-            .map_err(Error::VerificationFailed)?;
+            .map_err(error::General::VerificationFailed)?;
         Ok(body)
     }
 
-    pub async fn handle_request(&mut self) -> Result<Res, http::Error> {
+    pub async fn handle_request(&mut self) -> Result<Res, error::Http> {
         let body = self.validate_sig().await?;
         let thankful_kv = self
             .ctx
