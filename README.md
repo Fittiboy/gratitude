@@ -5,7 +5,7 @@ This is as easy as clicking
 
 ## What is this bot?
 This bot will randomly remind registered users to keep a
-[gratitude journal](https://www.wikiwand.com/en/Gratitude_journal), right within Discord!  
+[gratitude journal](https://youtu.be/WPPPFqsECz0), right within Discord!  
 It runs on
 [Cloudflare workers](https://workers.dev/), and is very simple to use:
 1. Use `/help` to get more information

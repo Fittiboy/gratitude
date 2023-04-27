@@ -409,7 +409,9 @@ impl NoComponentMessage {
                     "sign up for those reminders, **/stop** to stop receiving them, and ",
                     "**/entry** to add something to the journal at any point!\n\n",
                     "*The bot is open source, and you can view (and copy!) the code ",
-                    "right here: <https://github.com/Fittiboy/gratitude>!*"
+                    "right here: <https://github.com/Fittiboy/gratitude>!*\n\n",
+                    "The inspiration for this bot came in great part from this video ",
+                    "by Kurzgesagt: https://youtu.be/WPPPFqsECz0",
                 )
                 .to_string(),
             ),
