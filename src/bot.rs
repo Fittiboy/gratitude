@@ -12,8 +12,8 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(req: Request, ctx: RouteContext<()>) -> App {
-        App { req, ctx }
+    pub fn new(req: Request, ctx: RouteContext<()>) -> Self {
+        Self { req, ctx }
     }
 
     fn var(&self, key: &str) -> Result<String, error::General> {
