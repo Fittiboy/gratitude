@@ -22,6 +22,7 @@ impl App {
             Err(_) => Err(error::General::EnvironmentVariableNotFound(key.to_string())),
         }
     }
+
     fn header(&self, key: &str) -> Result<String, error::General> {
         match self.req.headers().get(key) {
             Ok(val) => val.ok_or_else(|| error::General::HeaderNotFound(key.to_string())),
